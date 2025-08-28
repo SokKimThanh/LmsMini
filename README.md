@@ -22,7 +22,7 @@
 - **MediatR** - CQRS pattern implementation
 - **FluentValidation** - Validation logic
 - **Serilog** - Logging framework
-- **xUnit** - Unit testing
+- **xUnit** - Unit testing.
 
 ## 🏗️ Kiến Trúc Dự Án
 
