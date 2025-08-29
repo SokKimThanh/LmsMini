@@ -87,7 +87,6 @@ dotnet restore       # Khôi phục packages
 dotnet build         # Build solution
 dotnet run --project LmsMini.Api   # Chạy API
 dotnet test          # Chạy tests
----
-
-**Tóm Lại:**
+``` 
+## **Tóm Lại:**
 - Clean Architecture không chỉ là một mô hình tổ chức code, mà còn là một triết lý giúp xây dựng phần mềm dễ bảo trì, dễ mở rộng và chất lượng cao.
