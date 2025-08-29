@@ -68,6 +68,8 @@
 6. Domain áp dụng rules  
 7. Mapping sang DTO  
 8. Controller trả response
+<img width="1000" height="580" alt="image" src="https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314" />
+<img width="748" height="480" alt="image" src="https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca" />
 
 ## 🧪 Chiến lược kiểm thử
 - **Unit test**: Domain rules, Application handlers, Infra repos  
