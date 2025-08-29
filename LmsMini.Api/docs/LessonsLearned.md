@@ -71,6 +71,8 @@
 <img width="1000" height="580" alt="image" src="https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314" />
 <img width="748" height="480" alt="image" src="https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca" />
 <img width="1216" height="509" alt="image" src="https://github.com/user-attachments/assets/2a526c43-07a5-445c-ba4b-ae648ddef6b9" />
+<img width="783" height="451" alt="image" src="https://github.com/user-attachments/assets/43d8820e-cda1-4a8e-a5e8-3e4776079409" />
+
 
 
 ## 🧪 Chiến lược kiểm thử
