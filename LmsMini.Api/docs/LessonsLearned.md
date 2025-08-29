@@ -70,7 +70,8 @@
 8. Controller trả response
 <img width="1000" height="580" alt="image" src="https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314" />
 <img width="748" height="480" alt="image" src="https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca" />
-<img width="998" height="509" alt="image" src="https://github.com/user-attachments/assets/1fed2c35-b7d2-4c44-ae1a-df5aedd05de8" />
+<img width="1216" height="509" alt="image" src="https://github.com/user-attachments/assets/2a526c43-07a5-445c-ba4b-ae648ddef6b9" />
+
 
 ## 🧪 Chiến lược kiểm thử
 - **Unit test**: Domain rules, Application handlers, Infra repos  
