@@ -1,125 +1,125 @@
-# Ki?n Tr�c Clean Architecture - LmsMini
+# Kiến Trúc Clean Architecture - LmsMini
 
-T�i li?u h�?ng d?n c�ch t? ch?c d? �n LmsMini theo m� h?nh Clean Architecture, bao g?m c�c tham chi?u gi?a c�c project, l?nh c?n thi?t v� v? tr� c�c file �? d? d�ng n?m b?t v� ph�t tri?n.
+Tài liệu hướng dẫn cách tổ chức dự án LmsMini theo mô hình Clean Architecture, bao gồm các tham chiếu giữa các project, lệnh cần thiết và vị trí các file để dễ dàng nắm bắt và phát triển.
 
-## ?? M?c Ti�u
+## 🎯 Mục Tiêu
 
-- **T�ch bi?t r? r�ng** c�c t?ng: Presentation / Application / Domain / Infrastructure
-- **D? d�ng m? r?ng**, ki?m th? v� tri?n khai
-- **Quy �?c v? tr� file** gi�p l?p tr?nh vi�n nhanh ch�ng t?m ��?c code li�n quan
+- **Tách biệt rõ ràng** các tầng: Presentation / Application / Domain / Infrastructure
+- **Dễ dàng mở rộng**, kiểm thử và triển khai
+- **Quy ước vị trí file** giúp lập trình viên nhanh chóng tìm được code liên quan
 
-## ??? C�c Project v� Nhi?m V?
+## 🏗️ Các Project và Nhiệm Vụ
 
-### ?? LmsMini.Api (T?ng Tr?nh B�y - Presentation Layer)
-- **Nhi?m v?**: Web API, Controllers, Swagger, Authentication
-- **Tham chi?u**: LmsMini.Application, LmsMini.Infrastructure
-- **Ch?c n�ng**: Ti?p nh?n HTTP requests, x�c th?c, ?y quy?n v� tr? v? responses
+### 📂 LmsMini.Api (Tầng Trình Bày - Presentation Layer)
+- **Nhiệm vụ**: Web API, Controllers, Swagger, Authentication
+- **Tham chiếu**: LmsMini.Application, LmsMini.Infrastructure
+- **Chức năng**: Tiếp nhận HTTP requests, xác thực, ủy quyền và trả về responses
 
-### ?? LmsMini.Application (T?ng ?ng D?ng - Application Layer)
-- **Nhi?m v?**: CQRS (MediatR), DTOs, Commands, Queries, Handlers, Quy t?c nghi?p v?
-- **Tham chi?u**: LmsMini.Domain
-- **Ch?c n�ng**: X? l? logic nghi?p v?, orchestration, use cases
+### 📂 LmsMini.Application (Tầng Ứng Dụng - Application Layer)
+- **Nhiệm vụ**: CQRS (MediatR), DTOs, Commands, Queries, Handlers, Quy tắc nghiệp vụ
+- **Tham chiếu**: LmsMini.Domain
+- **Chức năng**: Xử lý logic nghiệp vụ, orchestration, use cases
 
-### ?? LmsMini.Domain (T?ng Mi?n - Domain Layer)
-- **Nhi?m v?**: Entities, Value Objects, Domain Services, Enums, Exceptions
-- **Tham chi?u**: **KH�NG tham chi?u project n�o kh�c**
-- **Ch?c n�ng**: Ch?a c�c quy t?c nghi?p v? c?t l?i, logic mi?n
+### 📂 LmsMini.Domain (Tầng Miền - Domain Layer)
+- **Nhiệm vụ**: Entities, Value Objects, Domain Services, Enums, Exceptions
+- **Tham chiếu**: **KHÔNG tham chiếu project nào khác**
+- **Chức năng**: Chứa các quy tắc nghiệp vụ cốt lõi, logic miền
 
-### ?? LmsMini.Infrastructure (T?ng H? T?ng - Infrastructure Layer)
-- **Nhi?m v?**: EF Core DbContext, Repositories, File storage, Email adapters, Migrations
-- **Tham chi?u**: LmsMini.Domain
-- **Ch?c n�ng**: Tri?n khai c? th? cho database, file system, external services
+### 📂 LmsMini.Infrastructure (Tầng Hạ Tầng - Infrastructure Layer)
+- **Nhiệm vụ**: EF Core DbContext, Repositories, File storage, Email adapters, Migrations
+- **Tham chiếu**: LmsMini.Domain
+- **Chức năng**: Triển khai cụ thể cho database, file system, external services
 
-### ?? LmsMini.Tests (Ki?m Th? - Testing)
-- **Nhi?m v?**: Unit tests, Integration tests
-- **Tham chi?u**: LmsMini.Application, LmsMini.Domain, LmsMini.Infrastructure
-- **Ch?c n�ng**: Ki?m th? c�c t?ng th�ng qua interfaces
+### 📂 LmsMini.Tests (Kiểm Thử - Testing)
+- **Nhiệm vụ**: Unit tests, Integration tests
+- **Tham chiếu**: LmsMini.Application, LmsMini.Domain, LmsMini.Infrastructure
+- **Chức năng**: Kiểm thử các tầng thông qua interfaces
 
-## ?? S� �? Tham Chi?u Project
+## 🔗 Sơ Đồ Tham Chiếu Project
 
 ```
 LmsMini.Api
-    ? (references)
-LmsMini.Application ? LmsMini.Infrastructure
-    ? (references)      ? (references)
-LmsMini.Domain ? ? ? ? ?
+    ↳ (references)
+LmsMini.Application ↔ LmsMini.Infrastructure
+    ↳ (references)      ↳ (references)
+LmsMini.Domain ↔ ↔ ↔ ↔ ↔
 ```
 
-**Chi ti?t tham chi?u:**
-- `LmsMini.Api` ? `LmsMini.Application`, `LmsMini.Infrastructure`
-- `LmsMini.Application` ? `LmsMini.Domain`
-- `LmsMini.Infrastructure` ? `LmsMini.Domain`
-- `LmsMini.Tests` ? `LmsMini.Application`, `LmsMini.Domain`, `LmsMini.Infrastructure`
+**Chi tiết tham chiếu:**
+- `LmsMini.Api` → `LmsMini.Application`, `LmsMini.Infrastructure`
+- `LmsMini.Application` → `LmsMini.Domain`
+- `LmsMini.Infrastructure` → `LmsMini.Domain`
+- `LmsMini.Tests` → `LmsMini.Application`, `LmsMini.Domain`, `LmsMini.Infrastructure`
 
-## ?? C?u Tr�c Th� M?c Chi Ti?t
+## 📂 Cấu Trúc Thư Mục Chi Tiết
 
 ```
 LmsMini/
-??? LmsMini.Api/
-?   ??? Controllers/            # C�c API Controllers
-?   ??? DTOs/                   # DTOs cho t?ng presentation (n?u c?n)
-?   ??? Configuration/          # C?u h?nh, ��ng k? DI
-?   ??? Middleware/             # Custom middleware
-?   ??? docs/                   # T�i li?u d? �n
-?
-??? LmsMini.Application/
-?   ??? Common/                 # Utilities chung, interfaces
-?   ??? Features/               # T? ch?c theo t�nh n�ng
-?   ?   ??? Courses/            # Qu?n l? kh�a h?c
-?   ?   ?   ??? Commands/       # L?nh t?o, s?a, x�a
-?   ?   ?   ??? Queries/        # Truy v?n d? li?u
-?   ?   ?   ??? DTOs/           # Data Transfer Objects
-?   ?   ??? Users/              # Qu?n l? ng�?i d�ng
-?   ?   ??? Assessments/        # ��nh gi�, ki?m tra
-?   ??? Behaviors/              # MediatR pipeline behaviors
-?   ??? Mapping/                # AutoMapper profiles
-?   ??? Validators/             # FluentValidation validators
-?
-??? LmsMini.Domain/
-?   ??? Entities/               # C�c entity ch�nh
-?   ?   ??? Identity/           # AspNetUser
-?   ?   ??? CourseManagement/   # Course, Module, Lesson, Enrollment
-?   ?   ??? Assessment/         # Quiz, Question, Option, QuizAttempt
-?   ?   ??? Tracking/           # Progress, Notification, AuditLog
-?   ?   ??? FileManagement/     # FileAsset
-?   ?   ??? Infrastructure/     # OutboxMessage
-?   ??? ValueObjects/           # Value objects
-?   ??? Enums/                  # C�c enum
-?   ??? Exceptions/             # Domain exceptions
-?   ??? Interfaces/             # Domain service interfaces
-?
-??? LmsMini.Infrastructure/
-?   ??? Persistence/
-?   ?   ??? LmsDbContext.cs     # EF Core DbContext ch�nh
-?   ?   ??? Configurations/     # Entity configurations
-?   ?   ??? Migrations/         # Database migrations
-?   ??? Repositories/           # Tri?n khai repository pattern
-?   ??? Services/               # External services
-?   ?   ??? FileStorage/        # Qu?n l? file
-?   ?   ??? Email/              # Email service
-?   ?   ??? Authentication/     # JWT, Identity
-?   ??? Extensions/             # Extension methods
-?
-??? LmsMini.Tests/
-?   ??? Unit/                   # Unit tests
-?   ?   ??? Application/
-?   ?   ??? Domain/
-?   ?   ??? Infrastructure/
-?   ??? Integration/            # Integration tests
-?       ??? Api/
-?       ??? Repositories/
+├── LmsMini.Api/
+│   ├── Controllers/            # Các API Controllers
+│   ├── DTOs/                   # DTOs cho tầng presentation (nếu cần)
+│   ├── Configuration/          # Cấu hình, đăng ký DI
+│   ├── Middleware/             # Custom middleware
+│   ├── docs/                   # Tài liệu dự án
+│
+├── LmsMini.Application/
+│   ├── Common/                 # Utilities chung, interfaces
+│   ├── Features/               # Tổ chức theo tính năng
+│   │   ├── Courses/            # Quản lý khóa học
+│   │   │   ├── Commands/       # Lệnh tạo, sửa, xóa
+│   │   │   ├── Queries/        # Truy vấn dữ liệu
+│   │   │   ├── DTOs/           # Data Transfer Objects
+│   │   ├── Users/              # Quản lý người dùng
+│   │   ├── Assessments/        # Đánh giá, kiểm tra
+│   ├── Behaviors/              # MediatR pipeline behaviors
+│   ├── Mapping/                # AutoMapper profiles
+│   ├── Validators/             # FluentValidation validators
+│
+├── LmsMini.Domain/
+│   ├── Entities/               # Các entity chính
+│   │   ├── Identity/           # AspNetUser
+│   │   ├── CourseManagement/   # Course, Module, Lesson, Enrollment
+│   │   ├── Assessment/         # Quiz, Question, Option, QuizAttempt
+│   │   ├── Tracking/           # Progress, Notification, AuditLog
+│   │   ├── FileManagement/     # FileAsset
+│   │   ├── Infrastructure/     # OutboxMessage
+│   ├── ValueObjects/           # Value objects
+│   ├── Enums/                  # Các enum
+│   ├── Exceptions/             # Domain exceptions
+│   ├── Interfaces/             # Domain service interfaces
+│
+├── LmsMini.Infrastructure/
+│   ├── Persistence/
+│   │   ├── LmsDbContext.cs     # EF Core DbContext chính
+│   │   ├── Configurations/     # Entity configurations
+│   │   ├── Migrations/         # Database migrations
+│   ├── Repositories/           # Triển khai repository pattern
+│   ├── Services/               # External services
+│   │   ├── FileStorage/        # Quản lý file
+│   │   ├── Email/              # Email service
+│   │   ├── Authentication/     # JWT, Identity
+│   ├── Extensions/             # Extension methods
+│
+├── LmsMini.Tests/
+│   ├── Unit/                   # Unit tests
+│   │   ├── Application/
+│   │   ├── Domain/
+│   │   ├── Infrastructure/
+│   ├── Integration/            # Integration tests
+│       ├── Api/
+│       ├── Repositories/
 ```
 
-**?? Ghi ch� quan tr?ng:** 
-- Entities ��?c scaffold t? database �?t trong `LmsMini.Domain/Entities`
-- DbContext �?t trong `LmsMini.Infrastructure/Persistence`
+**📌 Ghi chú quan trọng:** 
+- Entities được scaffold từ database đặt trong `LmsMini.Domain/Entities`
+- DbContext đặt trong `LmsMini.Infrastructure/Persistence`
 
-## ?? V? Tr� C�c File Quan Tr?ng
+## 📍 Vị Trí Các File Quan Trọng
 
-| **Lo?i File** | **��?ng D?n** | **M� T?** |
+| **Loại File** | **Đường Dẫn** | **Mô Tả** |
 |---------------|----------------|-----------|
-| **DbContext** | `LmsMini.Infrastructure/Persistence/LmsDbContext.cs` | Context ch�nh c?a EF Core |
-| **Entities** | `LmsMini.Domain/Entities/*.cs` | C�c entity domain |
+| **DbContext** | `LmsMini.Infrastructure/Persistence/LmsDbContext.cs` | Context chính của EF Core |
+| **Entities** | `LmsMini.Domain/Entities/*.cs` | Các entity domain |
 | **Controllers** | `LmsMini.Api/Controllers/*.cs` | API Controllers |
 | **Commands** | `LmsMini.Application/Features/*/Commands/` | CQRS Commands |
 | **Queries** | `LmsMini.Application/Features/*/Queries/` | CQRS Queries |
@@ -129,9 +129,9 @@ LmsMini/
 | **Validators** | `LmsMini.Application/Validators/` | FluentValidation |
 | **Repositories** | `LmsMini.Infrastructure/Repositories/` | Repository implementations |
 
-## ?? C?u H?nh Dependency Injection
+## ⚙️ Cấu Hình Dependency Injection
 
-### V� d? trong `Program.cs`:
+### Ví dụ trong `Program.cs`:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -165,52 +165,52 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => { /* JWT config */ });
 
-// Logging v?i Serilog
+// Logging với Serilog
 builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration));
 
 var app = builder.Build();
 ```
 
-## ??? C�c L?nh Th�?ng D�ng
+## 🛠️ Các Lệnh Thường Dùng
 
-### **L?nh C� B?n**
+### **Lệnh Cơ Bản**
 ```bash
-# Kh�i ph?c packages
+# Khôi phục packages
 dotnet restore
 
 # Build solution
 dotnet build
 
-# Ch?y API
+# Chạy API
 dotnet run --project LmsMini.Api
 
-# Ch?y tests
+# Chạy tests
 dotnet test
 
 # Clean solution
 dotnet clean
 ```
 
-### **Qu?n L? Package**
+### **Quản Lý Package**
 ```bash
-# Th�m packages cho Application layer
+# Thêm packages cho Application layer
 dotnet add LmsMini.Application package MediatR
 dotnet add LmsMini.Application package AutoMapper
 dotnet add LmsMini.Application package FluentValidation
 
-# Th�m packages cho Infrastructure layer
+# Thêm packages cho Infrastructure layer
 dotnet add LmsMini.Infrastructure package Microsoft.EntityFrameworkCore.SqlServer
 dotnet add LmsMini.Infrastructure package Microsoft.EntityFrameworkCore.Design
 
-# Th�m packages cho API layer
+# Thêm packages cho API layer
 dotnet add LmsMini.Api package Microsoft.AspNetCore.Authentication.JwtBearer
 dotnet add LmsMini.Api package Serilog.AspNetCore
 ```
 
 ### **Entity Framework Core**
 
-#### **Scaffold t? Database (Database-first)**
+#### **Scaffold từ Database (Database-first)**
 ```bash
 dotnet ef dbcontext scaffold \
 "Server=.\\SQLEXPRESS;Database=LMSMini;Trusted_Connection=True;TrustServerCertificate=True;" \
@@ -227,17 +227,17 @@ Microsoft.EntityFrameworkCore.SqlServer \
 
 #### **Migrations (Code-first)**
 ```bash
-# T?o migration m?i
+# Tạo migration mới
 dotnet ef migrations add TenMigration \
 --project LmsMini.Infrastructure \
 --startup-project LmsMini.Api
 
-# C?p nh?t database
+# Cập nhật database
 dotnet ef database update \
 --project LmsMini.Infrastructure \
 --startup-project LmsMini.Api
 
-# Xem danh s�ch migrations
+# Xem danh sách migrations
 dotnet ef migrations list \
 --project LmsMini.Infrastructure \
 --startup-project LmsMini.Api
@@ -248,91 +248,91 @@ dotnet ef database update TenMigrationTruoc \
 --startup-project LmsMini.Api
 ```
 
-## ?? Lu?ng Ho?t �?ng (Data Flow)
+## 🔄 Luồng Hoạt Động (Data Flow)
 
 ```
-1. ?? Client g?i HTTP Request
-         ?
-2. ?? Controller nh?n request
-         ?
-3. ?? Controller t?o Command/Query
-         ?
-4. ?? G?i qua MediatR
-         ?
-5. ?? Handler x? l? logic nghi?p v?
-         ?
-6. ?? Repository t��ng t�c v?i Database
-         ?
-7. ?? Domain entities �p d?ng business rules
-         ?
-8. ?? K?t qu? tr? v? qua DTO
-         ?
-9. ?? Controller tr? v? HTTP Response
+1. 🟢 Client gửi HTTP Request
+         ↓
+2. 🟢 Controller nhận request
+         ↓
+3. 🟢 Controller tạo Command/Query
+         ↓
+4. 🟢 Gửi qua MediatR
+         ↓
+5. 🟢 Handler xử lý logic nghiệp vụ
+         ↓
+6. 🟢 Repository tương tác với Database
+         ↓
+7. 🟢 Domain entities áp dụng business rules
+         ↓
+8. 🟢 Kết quả trả về qua DTO
+         ↓
+9. 🟢 Controller trả về HTTP Response
 ```
 
-### **Chi Ti?t T?ng B�?c:**
+### **Chi Tiết Từng Bước:**
 
-1. **Client ? Controller**: HTTP request �?n API endpoint
-2. **Controller**: Nh?n request, validate c� b?n, t?o Command/Query
-3. **MediatR**: �?nh tuy?n �?n Handler ph� h?p
-4. **Handler**: X? l? business logic, g?i Repository/Domain Services
-5. **Repository**: Truy c?p database th�ng qua DbContext
-6. **Domain**: �p d?ng business rules v� validation
-7. **Response**: Mapping sang DTO v� tr? v? Controller
-8. **HTTP Response**: Tr? v? client v?i format JSON
+1. **Client → Controller**: HTTP request đến API endpoint
+2. **Controller**: Nhận request, validate cơ bản, tạo Command/Query
+3. **MediatR**: Định tuyến đến Handler phù hợp
+4. **Handler**: Xử lý business logic, gọi Repository/Domain Services
+5. **Repository**: Truy cập database thông qua DbContext
+6. **Domain**: Áp dụng business rules và validation
+7. **Response**: Mapping sang DTO và trả về Controller
+8. **HTTP Response**: Trả về client với format JSON
 
-## ?? Chi?n L�?c Ki?m Th?
+## 🧪 Chiến Lược Kiểm Thử
 
 ### **Unit Tests**
-- **Domain**: Test business rules trong entities v� domain services
-- **Application**: Test handlers v?i mocked repositories
-- **Infrastructure**: Test repositories v?i in-memory database
+- **Domain**: Test business rules trong entities và domain services
+- **Application**: Test handlers với mocked repositories
+- **Infrastructure**: Test repositories với in-memory database
 
 ### **Integration Tests**
-- **API**: Test endpoints v?i real database
+- **API**: Test endpoints với real database
 - **Database**: Test Entity Framework configurations
-- **External Services**: Test v?i mock external dependencies
+- **External Services**: Test với mock external dependencies
 
-### **V� d? Structure Tests:**
+### **Ví dụ Structure Tests:**
 ```
 LmsMini.Tests/
-??? Unit/
-?   ??? Domain/
-?   ?   ??? Entities/
-?   ?   ?   ??? CourseTests.cs
-?   ?   ?   ??? UserTests.cs
-?   ?   ??? Services/
-?   ?       ??? CourseServiceTests.cs
-?   ??? Application/
-?   ?   ??? Commands/
-?   ?   ?   ??? CreateCourseCommandHandlerTests.cs
-?   ?   ??? Queries/
-?   ?       ??? GetCoursesQueryHandlerTests.cs
-?   ??? Infrastructure/
-?       ??? Repositories/
-?       ?   ??? CourseRepositoryTests.cs
-?       ??? Services/
-?           ??? FileStorageServiceTests.cs
-??? Integration/
-    ??? Api/
-    ?   ??? CoursesControllerTests.cs
-    ??? Database/
-        ??? LmsDbContextTests.cs
+├── Unit/
+│   ├── Domain/
+│   │   ├── Entities/
+│   │   │   ├── CourseTests.cs
+│   │   │   ├── UserTests.cs
+│   │   ├── Services/
+│   │       ├── CourseServiceTests.cs
+│   ├── Application/
+│   │   ├── Commands/
+│   │   │   ├── CreateCourseCommandHandlerTests.cs
+│   │   ├── Queries/
+│   │       ├── GetCoursesQueryHandlerTests.cs
+│   ├── Infrastructure/
+│       ├── Repositories/
+│       │   ├── CourseRepositoryTests.cs
+│       ├── Services/
+│           ├── FileStorageServiceTests.cs
+├── Integration/
+    ├── Api/
+    │   ├── CoursesControllerTests.cs
+    ├── Database/
+        ├── LmsDbContextTests.cs
 ```
 
-## ?? Best Practices (Th?c H�nh T?t Nh?t)
+## 🌟 Best Practices (Thực Hành Tốt Nhất)
 
-### **Nguy�n T?c Clean Architecture**
-- **Domain Layer**: Kh�ng ph? thu?c v�o framework n�o
-- **Application Layer**: �?nh ngh?a interfaces, Infrastructure implement
-- **DTOs**: S? d?ng cho vi?c truy?n d? li?u qua boundaries
-- **Cross-cutting Concerns**: T?p trung trong Application Behaviors
+### **Nguyên Tắc Clean Architecture**
+- **Domain Layer**: Không phụ thuộc vào framework nào
+- **Application Layer**: Định nghĩa interfaces, Infrastructure implement
+- **DTOs**: Sử dụng cho việc truyền dữ liệu qua boundaries
+- **Cross-cutting Concerns**: Tập trung trong Application Behaviors
 
-### **Quy T?c Code Organization**
-- **Controllers**: Ch? l�m orchestration, kh�ng ch?a business logic
-- **Handlers**: M?t handler cho m?t use case c? th?
+### **Quy Tắc Code Organization**
+- **Controllers**: Chỉ làm orchestration, không chứa business logic
+- **Handlers**: Một handler cho một use case cụ thể
 - **Repositories**: Interface trong Application, implement trong Infrastructure
-- **Entities**: Ch?a business rules, kh�ng ch?a framework dependencies
+- **Entities**: Chứa business rules, không chứa framework dependencies
 
 ### **Naming Conventions**
 - **Commands**: `CreateCourseCommand`, `UpdateCourseCommand`
@@ -345,11 +345,11 @@ LmsMini.Tests/
 - **Domain Exceptions**: Cho business rule violations
 - **Application Exceptions**: Cho application logic errors
 - **Infrastructure Exceptions**: Cho external service failures
-- **Global Exception Middleware**: X? l? t?t c? exceptions trong API
+- **Global Exception Middleware**: Xử lý tất cả exceptions trong API
 
 ---
 
-## ?? Tham Kh?o Th�m
+## 📚 Tham Khảo Thêm
 
 - [Clean Architecture by Uncle Bob](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 - [Microsoft .NET Application Architecture Guides](https://docs.microsoft.com/en-us/dotnet/architecture/)
@@ -358,4 +358,4 @@ LmsMini.Tests/
 
 ---
 
-**?? V? tr� t�i li?u**: `LmsMini.Api/docs/CleanArchitecture.md`
+**📍 Vị trí tài liệu**: `LmsMini.Api/docs/CleanArchitecture.md`
