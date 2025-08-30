@@ -1,86 +1,72 @@
 ﻿# Bài Học Đúc Kết Từ Clean Architecture
 
-## 1. **Tầm Quan Trọng Của Phân Tầng**
-- Phân tách rõ ràng các tầng Presentation, Application, Domain, và Infrastructure giúp:
-  - Dễ dàng mở rộng và bảo trì.
-  - Đảm bảo mỗi tầng có trách nhiệm riêng biệt.
-  - Giảm sự phụ thuộc giữa các tầng.
+## Mục lục
+- [Tổng quan](#tổng-quan)
+- [Các bài học chính](#các-bài-học-chính)
+- [Kiến trúc và tầng](#kiến-trúc-và-tầng)
+- [Luồng hoạt động (UI → API → DB)](#luồng-hoạt-động-ui---api---db)
+- [Ví dụ minh họa (có thể copy/paste)](#ví-dụ-minh-họa-có-thể-copypaste)
+  - [Command + Handler](#command--handler)
+  - [Query + Handler](#query--handler)
+  - [Repository interface & implementation](#repository-interface--implementation)
+  - [Entity & DTO](#entity--dto)
+  - [Controller (điểm vào API)](#controller-điểm-vào-api)
+  - [Đăng ký DI (Program.cs)](#đăng-ký-di-programcs)
+  - [Validator (FluentValidation)](#validator-fluentvalidation)
+- [Kiểm thử](#kiểm-thử)
+- [Ghi chú & bước tiếp theo](#ghi-chú--bước-tiếp-theo)
 
-## 2. **Domain Là Trung Tâm**
-- Domain Layer không phụ thuộc vào bất kỳ framework hay tầng nào khác.
-- Chứa các quy tắc nghiệp vụ cốt lõi, đảm bảo tính đúng đắn của hệ thống.
+---
 
-## 3. **Sử Dụng CQRS Để Tối Ưu Hóa**
-- Command và Query được tách biệt:
-  - Command: Xử lý thay đổi trạng thái.
-  - Query: Xử lý truy vấn dữ liệu.
-- Giúp code dễ đọc, dễ kiểm thử và tối ưu hóa hiệu suất.
+## Tổng quan
+Tài liệu này tóm tắt các bài học chính khi áp dụng Clean Architecture cho dự án LmsMini, kèm ví dụ minh họa luồng xử lý từ UI đến Database và các mẫu code có thể dùng làm tham khảo.
 
-## 4. **Dependency Injection Là Chìa Khóa**
-- Sử dụng Dependency Injection để quản lý sự phụ thuộc giữa các lớp.
-- Giúp dễ dàng thay thế và kiểm thử các thành phần.
+## Các bài học chính
+- Phân tách rõ ràng các tầng (Presentation / Application / Domain / Infrastructure).
+- Domain là trung tâm: không phụ thuộc framework.
+- Sử dụng CQRS (MediatR) để tách command và query.
+- Dependency Injection giúp quản lý phụ thuộc và dễ test.
+- Document rõ ràng (README, docs) để developer mới nắm bắt nhanh.
+- Viết Unit test và Integration test.
+- Dùng mã hóa UTF-8 (không BOM) cho tài liệu.
 
-## 5. **Tài Liệu Rõ Ràng Là Cần Thiết**
-- Một tài liệu chi tiết giúp:
-  - Lập trình viên mới dễ dàng nắm bắt cấu trúc dự án.
-  - Đảm bảo mọi người trong nhóm hiểu rõ cách tổ chức và quy tắc.
+## Kiến trúc và tầng
+- LmsMini.Api (Presentation): Controllers, Swagger, Auth.
+- LmsMini.Application: Commands/Queries, Handlers, DTOs, Interfaces.
+- LmsMini.Domain: Entities, ValueObjects, Domain logic (không tham chiếu các tầng khác).
+- LmsMini.Infrastructure: EF Core DbContext, Repositories, Implementations.
+- LmsMini.Tests: Unit & Integration tests.
 
-## 6. **Kiểm Thử Là Một Phần Không Thể Thiếu**
-- Unit Test và Integration Test đảm bảo chất lượng code:
-  - Unit Test: Kiểm tra logic nghiệp vụ.
-  - Integration Test: Kiểm tra sự tương tác giữa các thành phần.
+> Vị trí file tham khảo (ví dụ):
+- CreateCourseCommand → LmsMini.Application/Features/Courses/Commands/CreateCourseCommand.cs
+- CreateCourseCommandHandler → LmsMini.Application/Features/Courses/Handlers/CreateCourseCommandHandler.cs
+- ICourseRepository → LmsMini.Application/Interfaces/ICourseRepository.cs
+- CourseRepository → LmsMini.Infrastructure/Repositories/CourseRepository.cs
+- Course entity → LmsMini.Domain/Entities/Course.cs
+- CoursesController → LmsMini.Api/Controllers/CoursesController.cs
 
-## 7. **Quy Ước Đặt Tên Rõ Ràng**
-- Đặt tên file, class, và phương thức theo đúng chức năng:
-  - Command: `CreateCourseCommand`
-  - Query: `GetCoursesQuery`
-  - DTO: `CourseDto`
-- Giúp code dễ đọc và dễ hiểu.
+## Luồng hoạt động (UI → API → DB)
+1. Người dùng nhập form (Title, Description) và bấm Create.
+2. Frontend gửi POST /api/courses với body JSON.
+3. Controller nhận request, map vào Command và gửi qua MediatR.
+4. Handler nhận Command, tạo Entity, gọi Repository.
+5. Repository dùng EF Core để lưu vào DB.
+6. DB ghi dữ liệu; handler trả về Id.
+7. Controller trả response (201 Created) cho client.
 
-## 8. **Sử Dụng Công Cụ Hiện Đại**
-- Các công cụ như MediatR, AutoMapper, FluentValidation, và Serilog giúp tăng năng suất và giảm lỗi.
+![flow](https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314)
+![flow2](https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca)
 
-## 9. **Mã Hóa UTF-8 Không BOM**
-- Đảm bảo tài liệu sử dụng mã hóa UTF-8 không BOM để tránh lỗi hiển thị ký tự đặc biệt.
+---
 
-## 🏗 Các tầng và nhiệm vụ
-| Tầng | Nhiệm vụ chính | Tham chiếu |
-|------|---------------|------------|
-| **LmsMini.Api** (Presentation) | Web API, Controllers, Swagger, Auth | Application, Infrastructure |
-| **LmsMini.Application** | CQRS, DTOs, Commands/Queries, Logic nghiệp vụ | Domain |
-| **LmsMini.Domain** | Entities, Value Objects, Rules cốt lõi | _(không tham chiếu)_ |
-| **LmsMini.Infrastructure** | DbContext, Repos, File/Email services | Domain |
-| **LmsMini.Tests** | Unit + Integration tests | Application, Domain, Infrastructure |
+## Ví dụ minh họa (có thể copy/paste)
+Các ví dụ dưới đây là mẫu tối giản, bao gồm namespace/usings và lưu ý nơi đặt file.
 
-## 📂 Cấu trúc chính (ghi nhớ theo cụm)
-- `Api/Controllers` → điểm vào API  
-- `Application/Features` → CQRS logic  
-- `Domain/Entities` → quy tắc nghiệp vụ  
-- `Infrastructure/Persistence` → EF Core DbContext, Migrations  
-- `Tests/Unit` & `Tests/Integration` → kiểm thử
-
-## 🔄 Luồng hoạt động (Data Flow)
-1 Client gọi API.
-
-2 Controller nhận request → tạo Command hoặc Query.
-
-3 MediatR định tuyến đến Handler tương ứng.
-
-4 Handler xử lý nghiệp vụ, gọi Repository nếu cần.
-
-5 Repository truy cập DB.
-
-6 Kết quả trả về qua DTO → Controller → Client.
-<img width="1000" height="580" alt="image" src="https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314" />
-<img width="748" height="480" alt="image" src="https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca" />
-<img width="1216" height="509" alt="image" src="https://github.com/user-attachments/assets/2a526c43-07a5-445c-ba4b-ae648ddef6b9" />
-<img width="783" height="451" alt="image" src="https://github.com/user-attachments/assets/43d8820e-cda1-4a8e-a5e8-3e4776079409" />
-
-## Ví dụ hoạt động Clean Architecture
-
-### 1. **Ví dụ về Command và Handler**
-#### Command: CreateCourseCommand
+### Command + Handler
+File: LmsMini.Application/Features/Courses/Commands/CreateCourseCommand.cs
 ```csharp
+using MediatR;
+
 public class CreateCourseCommand : IRequest<Guid>
 {
     public string Title { get; set; }
@@ -88,8 +74,12 @@ public class CreateCourseCommand : IRequest<Guid>
 }
 ```
 
-#### Handler: CreateCourseCommandHandler
+File: LmsMini.Application/Features/Courses/Handlers/CreateCourseCommandHandler.cs
 ```csharp
+using MediatR;
+using System.Threading;
+using System.Threading.Tasks;
+
 public class CreateCourseCommandHandler : IRequestHandler<CreateCourseCommand, Guid>
 {
     private readonly ICourseRepository _courseRepository;
@@ -109,22 +99,29 @@ public class CreateCourseCommandHandler : IRequestHandler<CreateCourseCommand, G
             CreatedAt = DateTime.UtcNow
         };
 
-        await _courseRepository.AddAsync(course);
+        await _courseRepository.AddAsync(course, cancellationToken);
         return course.Id;
     }
 }
 ```
 
-### 2. **Ví dụ về Query và Handler**
-#### Query: GetCoursesQuery
+### Query + Handler
+File: LmsMini.Application/Features/Courses/Queries/GetCoursesQuery.cs
 ```csharp
-public class GetCoursesQuery : IRequest<List<CourseDto>>
-{
-}
+using MediatR;
+using System.Collections.Generic;
+
+public class GetCoursesQuery : IRequest<List<CourseDto>> { }
 ```
 
-#### Handler: GetCoursesQueryHandler
+File: LmsMini.Application/Features/Courses/Handlers/GetCoursesQueryHandler.cs
 ```csharp
+using MediatR;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
 public class GetCoursesQueryHandler : IRequestHandler<GetCoursesQuery, List<CourseDto>>
 {
     private readonly ICourseRepository _courseRepository;
@@ -136,29 +133,34 @@ public class GetCoursesQueryHandler : IRequestHandler<GetCoursesQuery, List<Cour
 
     public async Task<List<CourseDto>> Handle(GetCoursesQuery request, CancellationToken cancellationToken)
     {
-        var courses = await _courseRepository.GetAllAsync();
-        return courses.Select(c => new CourseDto
-        {
-            Id = c.Id,
-            Title = c.Title,
-            Description = c.Description
-        }).ToList();
+        var courses = await _courseRepository.GetAllAsync(cancellationToken);
+        return courses.Select(c => new CourseDto { Id = c.Id, Title = c.Title, Description = c.Description }).ToList();
     }
 }
 ```
 
-### 3. **Ví dụ về Repository Interface và Implementation**
-#### Interface: ICourseRepository
+### Repository interface & implementation
+File: LmsMini.Application/Interfaces/ICourseRepository.cs
 ```csharp
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
 public interface ICourseRepository
 {
-    Task AddAsync(Course course);
-    Task<List<Course>> GetAllAsync();
+    Task AddAsync(Course course, CancellationToken cancellationToken = default);
+    Task<List<Course>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<Course> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 }
 ```
 
-#### Implementation: CourseRepository
+File: LmsMini.Infrastructure/Repositories/CourseRepository.cs
 ```csharp
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
 public class CourseRepository : ICourseRepository
 {
     private readonly LmsDbContext _context;
@@ -168,20 +170,26 @@ public class CourseRepository : ICourseRepository
         _context = context;
     }
 
-    public async Task AddAsync(Course course)
+    public async Task AddAsync(Course course, CancellationToken cancellationToken = default)
     {
         _context.Courses.Add(course);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<List<Course>> GetAllAsync()
+    public async Task<List<Course>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Courses.ToListAsync();
+        return await _context.Courses.AsNoTracking().ToListAsync(cancellationToken);
+    }
+
+    public async Task<Course> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Courses.FindAsync(new object[] { id }, cancellationToken);
     }
 }
 ```
 
-### 4. **Ví dụ về Entity**
+### Entity & DTO
+File: LmsMini.Domain/Entities/Course.cs
 ```csharp
 public class Course
 {
@@ -192,7 +200,7 @@ public class Course
 }
 ```
 
-### 5. **Ví dụ về DTO**
+File: LmsMini.Application/DTOs/CourseDto.cs
 ```csharp
 public class CourseDto
 {
@@ -202,24 +210,34 @@ public class CourseDto
 }
 ```
 
-### 6. **Ví dụ về Controller**
+### Controller (điểm vào API)
+File: LmsMini.Api/Controllers/CoursesController.cs
 ```csharp
+using Microsoft.AspNetCore.Mvc;
+using MediatR;
+using System.Threading.Tasks;
+
 [ApiController]
 [Route("api/[controller]")]
 public class CoursesController : ControllerBase
 {
     private readonly IMediator _mediator;
 
-    public CoursesController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
+    public CoursesController(IMediator mediator) => _mediator = mediator;
 
     [HttpPost]
     public async Task<IActionResult> CreateCourse([FromBody] CreateCourseCommand command)
     {
         var courseId = await _mediator.Send(command);
-        return CreatedAtAction(nameof(GetCourses), new { id = courseId }, null);
+        return CreatedAtAction(nameof(GetCourseById), new { id = courseId }, null);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetCourseById(Guid id)
+    {
+        var course = await _mediator.Send(new GetCourseByIdQuery { Id = id });
+        if (course == null) return NotFound();
+        return Ok(course);
     }
 
     [HttpGet]
@@ -231,147 +249,43 @@ public class CoursesController : ControllerBase
 }
 ```
 
-## 🔄 Thứ tự mã theo luồng xử lý
+### Đăng ký DI (Program.cs)
+```csharp
+// Program.cs (excerpts)
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddMediatR(typeof(CreateCourseCommand).Assembly);
+builder.Services.AddAutoMapper(typeof(CourseProfile).Assembly);
+builder.Services.AddValidatorsFromAssembly(typeof(CreateCourseValidator).Assembly);
+```
 
-### 1. **Người dùng thao tác trên UI**
-- Form nhập `Title` và `Description` + nút **Create Course**.
-- Khi bấm nút, frontend gửi HTTP POST tới API:
+### Validator (FluentValidation)
+File: LmsMini.Application/Validators/CreateCourseValidator.cs
+```csharp
+using FluentValidation;
 
-```json
-POST /api/courses
+public class CreateCourseValidator : AbstractValidator<CreateCourseCommand>
 {
-  "title": "Lập trình C# cơ bản",
-  "description": "Khóa học cho người mới bắt đầu"
-}
-```
-
-### 2. **API Controller – Điểm vào hệ thống**
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class CoursesController : ControllerBase {
-    private readonly IMediator _mediator;
-
-    public CoursesController(IMediator mediator) {
-        _mediator = mediator;
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateCourse([FromBody] CreateCourseCommand command) {
-        var courseId = await _mediator.Send(command);
-        return CreatedAtAction(nameof(GetCourses), new { id = courseId }, null);
+    public CreateCourseValidator()
+    {
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Description).MaximumLength(4000);
     }
 }
 ```
-- Nhận dữ liệu từ request body → map vào `CreateCourseCommand`.
-- Gửi command này qua MediatR để tìm handler xử lý.
-
-### 3. **Command – Gói dữ liệu yêu cầu**
-```csharp
-public class CreateCourseCommand : IRequest<Guid> {
-    public string Title { get; set; }
-    public string Description { get; set; }
-}
-```
-- Chỉ chứa dữ liệu cần thiết để tạo khóa học.
-- `IRequest<Guid>` báo rằng kết quả trả về là `Guid` (ID khóa học mới).
-
-### 4. **Handler – Xử lý nghiệp vụ**
-```csharp
-public class CreateCourseCommandHandler : IRequestHandler<CreateCourseCommand, Guid> {
-    private readonly ICourseRepository _courseRepository;
-
-    public CreateCourseCommandHandler(ICourseRepository courseRepository) {
-        _courseRepository = courseRepository;
-    }
-
-    public async Task<Guid> Handle(CreateCourseCommand request, CancellationToken cancellationToken) {
-        var course = new Course {
-            Id = Guid.NewGuid(),
-            Title = request.Title,
-            Description = request.Description,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _courseRepository.AddAsync(course);
-        return course.Id;
-    }
-}
-```
-- Nhận `Command` từ Controller.
-- Tạo entity `Course` mới.
-- Gọi repository để lưu vào DB.
-
-### 5. **Repository Interface & Implementation**
-#### Interface: ICourseRepository
-```csharp
-public interface ICourseRepository {
-    Task AddAsync(Course course);
-}
-```
-
-#### Implementation: CourseRepository
-```csharp
-public class CourseRepository : ICourseRepository {
-    private readonly LmsDbContext _context;
-
-    public CourseRepository(LmsDbContext context) {
-        _context = context;
-    }
-
-    public async Task AddAsync(Course course) {
-        _context.Courses.Add(course);
-        await _context.SaveChangesAsync();
-    }
-}
-```
-- Interface nằm ở **Application Layer**.
-- Implementation nằm ở **Infrastructure Layer** (dùng EF Core).
-
-### 6. **Entity – Mô hình dữ liệu nghiệp vụ**
-```csharp
-public class Course {
-    public Guid Id { get; set; }
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
-```
-- Thuộc **Domain Layer**.
-- Không phụ thuộc framework.
-
-### 7. **Database – Lưu trữ dữ liệu**
-- EF Core mapping `Course` → bảng `Courses` trong DB.
-- Sau khi `SaveChangesAsync()`, dữ liệu được ghi vào DB.
 
 ---
 
-## 📌 Tóm tắt luồng
-1. **UI**: nhập `Title` + `Description` → bấm **Create**.
-2. **Controller**: nhận request → tạo `CreateCourseCommand`.
-3. **MediatR**: tìm `CreateCourseCommandHandler`.
-4. **Handler**: tạo `Course` entity → gọi repository.
-5. **Repository**: lưu vào DB qua EF Core.
-6. **DB**: ghi dữ liệu → trả về `courseId`.
-7. **Controller**: trả kết quả cho client.
+## Kiểm thử
+- Unit test: test domain rules, handlers (mock repository), validators.
+- Integration test: test API endpoints (in-memory DB or test DB), repository implementations.
 
-## 🧪 Chiến lược kiểm thử
-- **Unit test**: Domain rules, Application handlers, Infra repos  
-- **Integration test**: API endpoints, DB config, External services
+## Ghi chú & bước tiếp theo
+- Sửa CreatedAtAction để trỏ đúng action trả resource theo id (đã cập nhật trong ví dụ).
+- Thêm handling cho lỗi/duplicate (ví dụ trả 400/409) trong handler hoặc repository khi cần.
+- Cân nhắc thêm AutoMapper profile ví dụ và test cases mẫu.
+- Di chuyển các hình ảnh vào `LmsMini.Api/docs/assets` và dùng đường dẫn tương đối nếu muốn giữ trong repo.
 
-## 💡 Best Practices
-- **Domain**: Không phụ thuộc framework  
-- **Controller**: Chỉ orchestration, không chứa business logic  
-- **Handler**: 1 handler = 1 use case  
-- **Repo**: Interface trong Application, implement ở Infrastructure  
-- **DTO**: Chỉ để truyền data qua boundaries  
-- **Tên chuẩn**: `CreateCourseCommand`, `GetCoursesQuery`, `CourseDto`…
+---
 
-## ⚙️ Lệnh thường dùng
-```bash
-dotnet restore       # Khôi phục packages
-dotnet build         # Build solution
-dotnet run --project LmsMini.Api   # Chạy API
-dotnet test          # Chạy tests
-``` 
-## **Tóm Lại:**
-- Clean Architecture không chỉ là một mô hình tổ chức code, mà còn là một triết lý giúp xây dựng phần mềm dễ bảo trì, dễ mở rộng và chất lượng cao.
+**Tóm Lại:**
+Tài liệu này đã được sắp xếp lại, gộp các phần trùng, chuẩn hoá ví dụ để có thể copy/paste vào project. Bạn muốn tôi: (A) commit thay đổi này, (B) thêm AutoMapper profile mẫu, hoặc (C) di chuyển ảnh vào thư mục docs/assets và cập nhật đường dẫn?
