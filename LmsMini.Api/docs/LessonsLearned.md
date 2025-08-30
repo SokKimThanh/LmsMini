@@ -56,6 +56,7 @@ Tài liệu này tóm tắt các bài học chính khi áp dụng Clean Architec
 
 ![flow](https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314)
 ![flow2](https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca)
+<img width="1288" height="613" alt="image" src="https://github.com/user-attachments/assets/9896b6e9-5cd4-4e15-ba75-ac86dfe14d58" />
 
 ---
 
