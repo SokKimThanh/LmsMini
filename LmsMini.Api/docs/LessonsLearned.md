@@ -60,14 +60,17 @@
 - `Tests/Unit` & `Tests/Integration` → kiểm thử
 
 ## 🔄 Luồng hoạt động (Data Flow)
-1. Client gửi request  
-2. Controller nhận & tạo Command/Query  
-3. MediatR định tuyến đến Handler  
-4. Handler xử lý nghiệp vụ  
-5. Repository truy cập DB  
-6. Domain áp dụng rules  
-7. Mapping sang DTO  
-8. Controller trả response
+1 Client gọi API.
+
+2 Controller nhận request → tạo Command hoặc Query.
+
+3 MediatR định tuyến đến Handler tương ứng.
+
+4 Handler xử lý nghiệp vụ, gọi Repository nếu cần.
+
+5 Repository truy cập DB.
+
+6 Kết quả trả về qua DTO → Controller → Client.
 <img width="1000" height="580" alt="image" src="https://github.com/user-attachments/assets/89bf43ab-101b-4fe7-bd4f-b9d28c4cb314" />
 <img width="748" height="480" alt="image" src="https://github.com/user-attachments/assets/c6c01084-8024-4de9-a473-f87665cc67ca" />
 <img width="1216" height="509" alt="image" src="https://github.com/user-attachments/assets/2a526c43-07a5-445c-ba4b-ae648ddef6b9" />
