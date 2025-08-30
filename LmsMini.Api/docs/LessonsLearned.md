@@ -73,7 +73,160 @@
 <img width="1216" height="509" alt="image" src="https://github.com/user-attachments/assets/2a526c43-07a5-445c-ba4b-ae648ddef6b9" />
 <img width="783" height="451" alt="image" src="https://github.com/user-attachments/assets/43d8820e-cda1-4a8e-a5e8-3e4776079409" />
 
+## Ví dụ hoạt động Clean Architecture
 
+### 1. **Ví dụ về Command và Handler**
+#### Command: CreateCourseCommand
+```csharp
+public class CreateCourseCommand : IRequest<Guid>
+{
+    public string Title { get; set; }
+    public string Description { get; set; }
+}
+```
+
+#### Handler: CreateCourseCommandHandler
+```csharp
+public class CreateCourseCommandHandler : IRequestHandler<CreateCourseCommand, Guid>
+{
+    private readonly ICourseRepository _courseRepository;
+
+    public CreateCourseCommandHandler(ICourseRepository courseRepository)
+    {
+        _courseRepository = courseRepository;
+    }
+
+    public async Task<Guid> Handle(CreateCourseCommand request, CancellationToken cancellationToken)
+    {
+        var course = new Course
+        {
+            Id = Guid.NewGuid(),
+            Title = request.Title,
+            Description = request.Description,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _courseRepository.AddAsync(course);
+        return course.Id;
+    }
+}
+```
+
+### 2. **Ví dụ về Query và Handler**
+#### Query: GetCoursesQuery
+```csharp
+public class GetCoursesQuery : IRequest<List<CourseDto>>
+{
+}
+```
+
+#### Handler: GetCoursesQueryHandler
+```csharp
+public class GetCoursesQueryHandler : IRequestHandler<GetCoursesQuery, List<CourseDto>>
+{
+    private readonly ICourseRepository _courseRepository;
+
+    public GetCoursesQueryHandler(ICourseRepository courseRepository)
+    {
+        _courseRepository = courseRepository;
+    }
+
+    public async Task<List<CourseDto>> Handle(GetCoursesQuery request, CancellationToken cancellationToken)
+    {
+        var courses = await _courseRepository.GetAllAsync();
+        return courses.Select(c => new CourseDto
+        {
+            Id = c.Id,
+            Title = c.Title,
+            Description = c.Description
+        }).ToList();
+    }
+}
+```
+
+### 3. **Ví dụ về Repository Interface và Implementation**
+#### Interface: ICourseRepository
+```csharp
+public interface ICourseRepository
+{
+    Task AddAsync(Course course);
+    Task<List<Course>> GetAllAsync();
+}
+```
+
+#### Implementation: CourseRepository
+```csharp
+public class CourseRepository : ICourseRepository
+{
+    private readonly LmsDbContext _context;
+
+    public CourseRepository(LmsDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task AddAsync(Course course)
+    {
+        _context.Courses.Add(course);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<Course>> GetAllAsync()
+    {
+        return await _context.Courses.ToListAsync();
+    }
+}
+```
+
+### 4. **Ví dụ về Entity**
+```csharp
+public class Course
+{
+    public Guid Id { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+```
+
+### 5. **Ví dụ về DTO**
+```csharp
+public class CourseDto
+{
+    public Guid Id { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+}
+```
+
+### 6. **Ví dụ về Controller**
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class CoursesController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public CoursesController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateCourse([FromBody] CreateCourseCommand command)
+    {
+        var courseId = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetCourses), new { id = courseId }, null);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetCourses()
+    {
+        var courses = await _mediator.Send(new GetCoursesQuery());
+        return Ok(courses);
+    }
+}
+```
 
 ## 🧪 Chiến lược kiểm thử
 - **Unit test**: Domain rules, Application handlers, Infra repos  
