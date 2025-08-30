@@ -231,6 +231,129 @@ public class CoursesController : ControllerBase
 }
 ```
 
+## 🔄 Thứ tự mã theo luồng xử lý
+
+### 1. **Người dùng thao tác trên UI**
+- Form nhập `Title` và `Description` + nút **Create Course**.
+- Khi bấm nút, frontend gửi HTTP POST tới API:
+
+```json
+POST /api/courses
+{
+  "title": "Lập trình C# cơ bản",
+  "description": "Khóa học cho người mới bắt đầu"
+}
+```
+
+### 2. **API Controller – Điểm vào hệ thống**
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class CoursesController : ControllerBase {
+    private readonly IMediator _mediator;
+
+    public CoursesController(IMediator mediator) {
+        _mediator = mediator;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateCourse([FromBody] CreateCourseCommand command) {
+        var courseId = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetCourses), new { id = courseId }, null);
+    }
+}
+```
+- Nhận dữ liệu từ request body → map vào `CreateCourseCommand`.
+- Gửi command này qua MediatR để tìm handler xử lý.
+
+### 3. **Command – Gói dữ liệu yêu cầu**
+```csharp
+public class CreateCourseCommand : IRequest<Guid> {
+    public string Title { get; set; }
+    public string Description { get; set; }
+}
+```
+- Chỉ chứa dữ liệu cần thiết để tạo khóa học.
+- `IRequest<Guid>` báo rằng kết quả trả về là `Guid` (ID khóa học mới).
+
+### 4. **Handler – Xử lý nghiệp vụ**
+```csharp
+public class CreateCourseCommandHandler : IRequestHandler<CreateCourseCommand, Guid> {
+    private readonly ICourseRepository _courseRepository;
+
+    public CreateCourseCommandHandler(ICourseRepository courseRepository) {
+        _courseRepository = courseRepository;
+    }
+
+    public async Task<Guid> Handle(CreateCourseCommand request, CancellationToken cancellationToken) {
+        var course = new Course {
+            Id = Guid.NewGuid(),
+            Title = request.Title,
+            Description = request.Description,
+            CreatedAt = DateTime.UtcNow
+        };
+        await _courseRepository.AddAsync(course);
+        return course.Id;
+    }
+}
+```
+- Nhận `Command` từ Controller.
+- Tạo entity `Course` mới.
+- Gọi repository để lưu vào DB.
+
+### 5. **Repository Interface & Implementation**
+#### Interface: ICourseRepository
+```csharp
+public interface ICourseRepository {
+    Task AddAsync(Course course);
+}
+```
+
+#### Implementation: CourseRepository
+```csharp
+public class CourseRepository : ICourseRepository {
+    private readonly LmsDbContext _context;
+
+    public CourseRepository(LmsDbContext context) {
+        _context = context;
+    }
+
+    public async Task AddAsync(Course course) {
+        _context.Courses.Add(course);
+        await _context.SaveChangesAsync();
+    }
+}
+```
+- Interface nằm ở **Application Layer**.
+- Implementation nằm ở **Infrastructure Layer** (dùng EF Core).
+
+### 6. **Entity – Mô hình dữ liệu nghiệp vụ**
+```csharp
+public class Course {
+    public Guid Id { get; set; }
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+```
+- Thuộc **Domain Layer**.
+- Không phụ thuộc framework.
+
+### 7. **Database – Lưu trữ dữ liệu**
+- EF Core mapping `Course` → bảng `Courses` trong DB.
+- Sau khi `SaveChangesAsync()`, dữ liệu được ghi vào DB.
+
+---
+
+## 📌 Tóm tắt luồng
+1. **UI**: nhập `Title` + `Description` → bấm **Create**.
+2. **Controller**: nhận request → tạo `CreateCourseCommand`.
+3. **MediatR**: tìm `CreateCourseCommandHandler`.
+4. **Handler**: tạo `Course` entity → gọi repository.
+5. **Repository**: lưu vào DB qua EF Core.
+6. **DB**: ghi dữ liệu → trả về `courseId`.
+7. **Controller**: trả kết quả cho client.
+
 ## 🧪 Chiến lược kiểm thử
 - **Unit test**: Domain rules, Application handlers, Infra repos  
 - **Integration test**: API endpoints, DB config, External services
