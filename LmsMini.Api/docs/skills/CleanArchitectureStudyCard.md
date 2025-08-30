@@ -1,18 +1,18 @@
-# Study Card: Lu?ng Backend API theo Clean Architecture (LmsMini)
+﻿# Study Card: Luồng Backend API theo Clean Architecture (LmsMini)
 
-M?c ti�u: nh? nhanh lu?ng UI ? API ? Application ? Domain ? Infrastructure ? DB, c�c kh�i ni?m ch�nh v� c�c b�?c th?c h�nh �? t?o API CreateCourse m� kh�ng c?n ph? thu?c nhi?u v�o AI.
-
----
-
-## 1 trang t�m t?t (One?page)
-- Lu?ng ch�nh: UI ? Controller ? Command/Query ? MediatR ? Handler ? Domain (Entities/Rules) / Application (Interfaces) ? Repository impl (Infrastructure) ? LmsDbContext ? DB.
-- Vai tr?: Controller = orchestration; Command/Query = DTO cho use?case; Handler = use?case logic; Repository interface ? Application; Implementation ? Infrastructure; Entity ? Domain.
-- Conventions: files theo t�nh n�ng: Application/Features/Courses/{Commands,Queries,Handlers}; Domain/Entities; Infrastructure/Repositories; Api/Controllers.
-- HTTP: POST ? t?o Command tr? Guid + 201 Created (CreatedAtAction ? GetById).
+Mục tiêu: nhớ nhanh luồng UI → API → Application → Domain → Infrastructure → DB, các khái niệm chính và các bước thực hành để tạo API CreateCourse mà không cần phụ thuộc nhiều vào AI.
 
 ---
 
-## Thu?t ng? ng?n c?n nh? (12�20)
+## 1 trang tóm tắt (One‑page)
+- Luồng chính: UI → Controller → Command/Query → MediatR → Handler → Domain (Entities/Rules) / Application (Interfaces) → Repository impl (Infrastructure) → LmsDbContext → DB.
+- Vai trò: Controller = orchestration; Command/Query = DTO cho use‑case; Handler = use‑case logic; Repository interface ở Application; Implementation ở Infrastructure; Entity ở Domain.
+- Conventions: files theo tính năng: Application/Features/Courses/{Commands,Queries,Handlers}; Domain/Entities; Infrastructure/Repositories; Api/Controllers.
+- HTTP: POST → tạo Command trả Guid + 201 Created (CreatedAtAction → GetById).
+
+---
+
+## Thuật ngữ ngắn cần nhớ (12–20)
 - Command, Query, Handler, IRequest<T>
 - MediatR, Pipeline Behavior
 - ICourseRepository (Application) vs CourseRepository (Infrastructure)
@@ -27,42 +27,42 @@ M?c ti�u: nh? nhanh lu?ng UI ? API ? Application ? Domain ? Infrastructure ? DB,
 
 ---
 
-## 15 Flashcards (Q/A ng?n)
-1. Q: Repository interface n�n �?t ? ��u? A: Application.
-2. Q: Implementation repository �?t ? ��u? A: Infrastructure.
-3. Q: Command tr? lo?i g? khi t?o resource? A: Guid (ID).
-4. Q: Handler nh?n g? t? MediatR? A: Command/Query instance.
-5. Q: Controller c� business logic kh�ng? A: Kh�ng � ch? orchestration.
-6. Q: D�ng g? �? validate Command? A: FluentValidation.
-7. Q: D�ng g? �? map Entity ? DTO? A: AutoMapper ho?c manual mapping.
-8. Q: L�m sao tr? location resource m?i? A: CreatedAtAction(nameof(GetById), new { id = id }, null).
-9. Q: AsNoTracking khi n�o? A: Truy v?n �?c �? t�ng hi?u n�ng.
-10. Q: RowVersion d�ng �? l�m g?? A: Concurrency token.
-11. Q: Soft delete flag t�n th�?ng d�ng? A: IsDeleted.
-12. Q: MediatR gi�p g?? A: �?nh tuy?n request t?i handler, gi?m coupling.
-13. Q: ��ng k? DI repository ? ��u? A: Program.cs (Api project).
-14. Q: Test handler n�n mock g?? A: ICourseRepository.
-15. Q: L?nh EF t?o migration? A: dotnet ef migrations add <Name> -p LmsMini.Infrastructure -s LmsMini.Api
+## 15 Flashcards (Q/A ngắn)
+1. Q: Repository interface nên đặt ở đâu? A: Application.
+2. Q: Implementation repository đặt ở đâu? A: Infrastructure.
+3. Q: Command trả loại gì khi tạo resource? A: Guid (ID).
+4. Q: Handler nhận gì từ MediatR? A: Command/Query instance.
+5. Q: Controller có business logic không? A: Không — chỉ orchestration.
+6. Q: Dùng gì để validate Command? A: FluentValidation.
+7. Q: Dùng gì để map Entity → DTO? A: AutoMapper hoặc manual mapping.
+8. Q: Làm sao trả location resource mới? A: CreatedAtAction(nameof(GetById), new { id = id }, null).
+9. Q: AsNoTracking khi nào? A: Truy vấn đọc để tăng hiệu năng.
+10. Q: RowVersion dùng để làm gì? A: Concurrency token.
+11. Q: Soft delete flag tên thường dùng? A: IsDeleted.
+12. Q: MediatR giúp gì? A: Định tuyến request tới handler, giảm coupling.
+13. Q: Đăng ký DI repository ở đâu? A: Program.cs (Api project).
+14. Q: Test handler nên mock gì? A: ICourseRepository.
+15. Q: Lệnh EF tạo migration? A: dotnet ef migrations add <Name> -p LmsMini.Infrastructure -s LmsMini.Api
 
 ---
 
-## Checklist th?c h�nh nhanh (CreateCourse) � 7 b�?c
-1. T?o Command file: Application/Features/Courses/Commands/CreateCourseCommand.cs
-2. T?o Validator: Application/Validators/CreateCourseValidator.cs; vi?t rules.
-3. T?o Handler: Application/Features/Courses/Handlers/CreateCourseCommandHandler.cs (injected ICourseRepository).
-4. T?o ICourseRepository trong Application/Interfaces v� CourseRepository trong Infrastructure/Repositories.
-5. ��ng k? DI & MediatR & Validators trong Program.cs (Api): AddScoped, AddMediatR, AddValidatorsFromAssembly.
-6. T?o Controller endpoint POST /api/courses g?i command qua _mediator.Send(command) v� tr? CreatedAtAction.
-7. Migration & update DB n?u c?n; test b?ng curl/Swagger.
+## Checklist thực hành nhanh (CreateCourse) — 7 bước
+1. Tạo Command file: Application/Features/Courses/Commands/CreateCourseCommand.cs
+2. Tạo Validator: Application/Validators/CreateCourseValidator.cs; viết rules.
+3. Tạo Handler: Application/Features/Courses/Handlers/CreateCourseCommandHandler.cs (injected ICourseRepository).
+4. Tạo ICourseRepository trong Application/Interfaces và CourseRepository trong Infrastructure/Repositories.
+5. Đăng ký DI & MediatR & Validators trong Program.cs (Api): AddScoped, AddMediatR, AddValidatorsFromAssembly.
+6. Tạo Controller endpoint POST /api/courses gửi command qua _mediator.Send(command) và trả CreatedAtAction.
+7. Migration & update DB nếu cần; test bằng curl/Swagger.
 
 ---
 
-## 3 v� d? HTTP (curl + JSON minimal)
+## 3 ví dụ HTTP (curl + JSON minimal)
 1) POST create
 ```bash
 curl -i -X POST http://localhost:5000/api/courses \
   -H "Content-Type: application/json" \
-  -d '{"title":"L?p tr?nh C# c� b?n","description":"Cho ng�?i m?i"}'
+  -d '{"title":"Lập trình C# cơ bản","description":"Cho người mới"}'
 ```
 Response: 201 Created, Header Location: /api/courses/{id}
 
@@ -80,26 +80,23 @@ Response: 200 OK or 404 NotFound
 
 ---
 
-## 5 c�u quiz nhanh (self-check)
-1. (T/F) Repository interface n�n n?m ? Infrastructure. (F)
-2. (MC) CreatedAtAction n�n tr? t?i: A) GetList B) GetById C) Create ? (B)
-3. (T/F) Use AsNoTracking() cho c�c truy v?n �?c th�?ng xuy�n. (T)
-4. (MC) Concurrency token th�?ng l�: A) IsDeleted B) RowVersion C) CreatedAt ? (B)
-5. (T/F) FluentValidation ch?y tr�?c handler khi �? ��ng k?. (T)
+## 5 câu quiz nhanh (self-check)
+1. (T/F) Repository interface nên nằm ở Infrastructure. (F)
+2. (MC) CreatedAtAction nên trỏ tới: A) GetList B) GetById C) Create → (B)
+3. (T/F) Use AsNoTracking() cho các truy vấn đọc thường xuyên. (T)
+4. (MC) Concurrency token thường là: A) IsDeleted B) RowVersion C) CreatedAt → (B)
+5. (T/F) FluentValidation chạy trước handler khi đã đăng ký. (T)
 
 ---
 
-## Mnemonic �? nh? th? t? lu?ng
-"UICMHRD" ? UI ? Controller ? MediatR (Command) ? Handler ? Repository ? DbContext
+## Mnemonic để nhớ thứ tự luồng
+"UICMHRD" → UI → Controller → MediatR (Command) → Handler → Repository → DbContext
 (Mnemonic: "Ui, Controllers Make Handlers Really Direct")
 
 ---
 
-## Ghi ch� d�ng khi �n
-- H?c b?ng c�ch vi?t: t?o nhanh m?t API CreateCourse t? template theo checklist tr�n.
-- �n flashcards 10 ph�t m?i ng�y, th?c h�nh 1 feature/tu?n.
-- Gi? file n�y l�m study card: in 1 trang A4, d�n c?nh m�n h?nh.
+## Ghi chú dùng khi ôn
+- Học bằng cách viết: tạo nhanh một API CreateCourse từ template theo checklist trên.
+- Ôn flashcards 10 phút mỗi ngày, thực hành 1 feature/tuần.
+- Giữ file này làm study card: in 1 trang A4, dán cạnh màn hình.
 
----
-
-B?n mu?n t�i l�u file n�y v�o docs/skills/CleanArchitectureStudyCard.md v� commit v?i m� t? ng?n kh�ng?
