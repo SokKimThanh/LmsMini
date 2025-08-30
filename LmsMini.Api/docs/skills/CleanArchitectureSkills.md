@@ -33,7 +33,4 @@ Nếu bạn học và thực hành Clean Architecture một cách nghiêm túc (
 - Kỹ năng giúp bạn tham gia ngay vào các codebase thực tế, giảm thời gian ramp-up.
 
 ---
-
-Tóm lại: nắm vững Clean Architecture không chỉ giúp "code chạy được" mà còn giúp bạn viết mã có thể bảo trì, kiểm thử và mở rộng — những kỹ năng rất được tuyển dụng.
-
-Nếu muốn, tôi có thể soạn một lộ trình học 4–6 tuần từ cơ bản đến triển khai thực tế. Bạn có muốn nhận lộ trình không?
+ 
