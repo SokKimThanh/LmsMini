@@ -1,45 +1,45 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 
 namespace LmsMini.Api.Docs.Examples
 {
-    // public interface: c�c ph��ng th?c m?c �?nh l� public
+    // public interface: các phương thức mặc định là public
     public interface IGreeter
     {
         Task GreetAsync(); // implicitly public
     }
 
-    // Tri?n khai ng?m (implicit): ph��ng th?c public, c� th? g?i tr?c ti?p
+    // Triển khai ngầm (implicit): phương thức public, có thể gọi trực tiếp
     public class Greeter : IGreeter
     {
         public Task GreetAsync()
         {
-            Console.WriteLine("Xin ch�o t? Greeter (tri?n khai ng?m)!");
+            Console.WriteLine("Xin chào từ Greeter (triển khai ngầm)!");
             return Task.CompletedTask;
         }
     }
 
-    // Tri?n khai t�?ng minh (explicit): ph��ng th?c ch? truy c?p khi cast v? IGreeter
+    // Triển khai tường minh (explicit): phương thức chỉ truy cập khi cast về IGreeter
     public class HiddenGreeter : IGreeter
     {
         Task IGreeter.GreetAsync()
         {
-            Console.WriteLine("Xin ch�o t? HiddenGreeter (tri?n khai t�?ng minh)!");
+            Console.WriteLine("Xin chào từ HiddenGreeter (triển khai tường minh)!");
             return Task.CompletedTask;
         }
     }
 
-    // Tr?nh ch?y minh h?a t?i gi?n (kh�ng ph?i ph?n c?a app, ch? �? minh h?a)
+    // Trình chạy minh họa tối giản (không phải phần của app, chỉ để minh họa)
     public static class MinimalExampleRunner
     {
         public static async Task Run()
         {
             IGreeter g = new Greeter();
-            await g.GreetAsync(); // ho?t �?ng -> "Xin ch�o t? Greeter (tri?n khai ng?m)!"
+            await g.GreetAsync(); // hoạt động -> "Xin chào từ Greeter (triển khai ngầm)!"
 
             var hg = new HiddenGreeter();
-            // hg.GreetAsync(); // l?i bi�n d?ch: ph��ng th?c kh�ng truy c?p ��?c tr�n HiddenGreeter
-            await ((IGreeter)hg).GreetAsync(); // ho?t �?ng -> "Xin ch�o t? HiddenGreeter (tri?n khai t�?ng minh)!"
+            // hg.GreetAsync(); // lỗi biên dịch: phương thức không truy cập được trên HiddenGreeter
+            await ((IGreeter)hg).GreetAsync(); // hoạt động -> "Xin chào từ HiddenGreeter (triển khai tường minh)!"
         }
     }
 }
