@@ -1,19 +1,19 @@
-# Interface visibility v� c�ch implement trong C#
+﻿# Interface visibility và cách implement trong C#
 
-M?c ti�u: gi?i th�ch ng?n g?n v? visibility c?a interface v� c�ch c�c ph��ng th?c c?a interface ��?c s? d?ng khi implement.
+Mục tiêu: giải thích ngắn gọn về visibility của interface và cách các phương thức của interface được sử dụng khi implement.
 
-T�m t?t:
-- ? c?p namespace, n?u b?n khai `public interface IMy { ... }` th? type n�y c� th? d�ng t? c�c assembly kh�c.
-- N?u b?n **kh�ng** khai access modifier (v� d?: `interface IMy { }`) th? m?c �?nh type l� `internal` (ch? th?y trong c�ng assembly).
-- C�c th�nh vi�n c?a interface (ph��ng th?c, property, v.v.) _m?c �?nh_ l� `public`. B?n kh�ng c?n (v� th�?ng kh�ng ��?c) vi?t access modifier tr�n c�c th�nh vi�n.
-- Khi m?t l?p implement interface, c� hai c�ch:
-  - Implicit implementation (tri?n khai th�ng th�?ng): ph��ng th?c tri?n khai ��?c khai l� `public` � c� th? g?i tr?c ti?p t? instance.
-  - Explicit interface implementation (tri?n khai t�?ng minh): �?nh danh ki?u khi tri?n khai (`void IMy.Method() { ... }`) � ph��ng th?c n�y *kh�ng* xu?t hi?n l� public tr�n l?p, ch? c� th? g?i khi instance ��?c cast v? interface.
+Tóm tắt:
+- Ở cấp namespace, nếu bạn khai `public interface IMy { ... }` thì type này có thể dùng từ các assembly khác.
+- Nếu bạn **không** khai access modifier (ví dụ: `interface IMy { }`) thì mặc định type là `internal` (chỉ thấy trong cùng assembly).
+- Các thành viên của interface (phương thức, property, v.v.) _mặc định_ là `public`. Bạn không cần (và thường không được) viết access modifier trên các thành viên.
+- Khi một lớp implement interface, có hai cách:
+  - Implicit implementation (triển khai thông thường): phương thức triển khai được khai là `public` — có thể gọi trực tiếp từ instance.
+  - Explicit interface implementation (triển khai tường minh): định danh kiểu khi triển khai (`void IMy.Method() { ... }`) — phương thức này *không* xuất hiện là public trên lớp, chỉ có thể gọi khi instance được cast về interface.
 
-G?i ?:
-- N?u repository/contract c?n d�ng t? c�c project kh�c (v� d? ��ng k? DI t? assembly kh�c), khai `public interface ICourseRepository` l� h?p l?.
-- N?u ch? d�ng n?i b? trong assembly, c� th? �? m?c �?nh `internal` b?ng c�ch kh�ng ghi `public`.
+Gợi ý:
+- Nếu repository/contract cần dùng từ các project khác (ví dụ đăng ký DI từ assembly khác), khai `public interface ICourseRepository` là hợp lý.
+- Nếu chỉ dùng nội bộ trong assembly, có thể để mặc định `internal` bằng cách không ghi `public`.
 
-V� d? minh ho? xem file examples/MinimalInterfaceExample.md
+Ví dụ minh hoạ xem file examples/MinimalInterfaceExample.md
 
-N?u c?n b?n ti?ng Anh ho?c m? r?ng v� d? v?i async/Task (nh� ICourseRepository), b�o r? y�u c?u.
+Nếu cần bản tiếng Anh hoặc mở rộng ví dụ với async/Task (như ICourseRepository), báo rõ yêu cầu.

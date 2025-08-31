@@ -9,37 +9,37 @@ namespace LmsMini.Api.Docs.Examples
         Task GreetAsync(); // implicitly public
     }
 
-    // Implicit implementation: phýõng th?c public, có th? g?i tr?c ti?p
+    // Tri?n khai ng?m (implicit): phýõng th?c public, có th? g?i tr?c ti?p
     public class Greeter : IGreeter
     {
         public Task GreetAsync()
         {
-            Console.WriteLine("Hello from Greeter (implicit)!");
+            Console.WriteLine("Xin chào t? Greeter (tri?n khai ng?m)!");
             return Task.CompletedTask;
         }
     }
 
-    // Explicit implementation: phýõng th?c ch? truy c?p khi cast v? IGreeter
+    // Tri?n khai tý?ng minh (explicit): phýõng th?c ch? truy c?p khi cast v? IGreeter
     public class HiddenGreeter : IGreeter
     {
         Task IGreeter.GreetAsync()
         {
-            Console.WriteLine("Hello from HiddenGreeter (explicit)!");
+            Console.WriteLine("Xin chào t? HiddenGreeter (tri?n khai tý?ng minh)!");
             return Task.CompletedTask;
         }
     }
 
-    // Minimal demo runner (not part of app, ch? ð? minh ho?)
+    // Tr?nh ch?y minh ho? t?i gi?n (không ph?i ph?n c?a app, ch? ð? minh ho?)
     public static class MinimalExampleRunner
     {
         public static async Task Run()
         {
             IGreeter g = new Greeter();
-            await g.GreetAsync(); // works -> "Hello from Greeter (implicit)!"
+            await g.GreetAsync(); // ho?t ð?ng -> "Xin chào t? Greeter (tri?n khai ng?m)!"
 
             var hg = new HiddenGreeter();
-            // hg.GreetAsync(); // compile error: method not accessible on HiddenGreeter
-            await ((IGreeter)hg).GreetAsync(); // works -> "Hello from HiddenGreeter (explicit)!"
+            // hg.GreetAsync(); // l?i biên d?ch: phýõng th?c không truy c?p ðý?c trên HiddenGreeter
+            await ((IGreeter)hg).GreetAsync(); // ho?t ð?ng -> "Xin chào t? HiddenGreeter (tri?n khai tý?ng minh)!"
         }
     }
 }
