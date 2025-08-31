@@ -29,7 +29,7 @@ namespace LmsMini.Api.Docs.Examples
         }
     }
 
-    // Tr?nh ch?y minh ho? t?i gi?n (không ph?i ph?n c?a app, ch? ð? minh ho?)
+    // Tr?nh ch?y minh h?a t?i gi?n (không ph?i ph?n c?a app, ch? ð? minh h?a)
     public static class MinimalExampleRunner
     {
         public static async Task Run()
