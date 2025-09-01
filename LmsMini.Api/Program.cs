@@ -1,11 +1,16 @@
-﻿// wire-up serilog, swagger, automapper, mediatR
-using Microsoft.OpenApi.Models;
-using Serilog;
-using MediatR;
+// wire-up serilog, swagger, automapper, mediatR
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using LmsMini.Application.Features.Courses.Commands;
+using LmsMini.Application.Interfaces;
+using LmsMini.Domain.Entities;
+using LmsMini.Infrastructure.Repositories;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+using Serilog;
 
-// 1. Khởi tạo logger
+// 1. Khởi tạo Serilog logger (chạy trước khi tạo builder để bắt được log trong quá trình khởi tạo)
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.Console()
@@ -13,20 +18,42 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 2. Thay thế default logger bằng Serilog
+// 2. Thay thế default logger của Host bằng Serilog
 builder.Host.UseSerilog();
 
-// 3. Đăng ký các dịch vụ
-// 3.1 Đăng ký Swagger
+// 3. Cấu hình dịch vụ chung (Service registrations)
+// 3.1 Đăng ký DbContext (kết nối CSDL)
+builder.Services.AddDbContext<LmsDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 3.2 Đăng ký Repository và các DI khác
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+// them automapper 
+
+// 3.3 Đăng ký AutoMapper (quét tất cả assemblies hiện tại)
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+// 3.4 Đăng ký MediatR (command/query handlers)
+builder.Services.AddMediatR(AppDomain.CurrentDomain.GetAssemblies());
+
+
+
+// 3.5 Đăng ký FluentValidation
+builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
+builder.Services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
+
+// 3.6 Đăng ký Swagger/OpenAPI (về sau có thể cấu hình bảo mật, JWT...)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "LmsMini API", Version = "v1" });
 
-    // Cấu hình JWT Bearer Auth
+    // Cấu hình JWT Bearer Auth trong Swagger (nếu cần)
     c.AddSecurityDefinition("Bearer", new()
     {
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT"
     });
@@ -47,35 +74,20 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 3.2 Đăng ký AutoMapper
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-
-// 3.3 Đăng ký MediatR
-builder.Services.AddMediatR(AppDomain.CurrentDomain.GetAssemblies());
-
-// 3.4 Đăng ký FluentValidation
-builder.Services
-    .AddControllers();
-builder.Services
-    .AddFluentValidationAutoValidation()
-    .AddFluentValidationClientsideAdapters();
-
-builder.Services.AddValidatorsFromAssemblies(AppDomain.CurrentDomain.GetAssemblies());
-
 var app = builder.Build();
 
-// 4. Cấu hình middleware
-// 4.1 Bật request logging với Serilog
+// 4. Cấu hình middleware (the request pipeline)
+// 4.1 Bật Serilog request logging để ghi log các request
 app.UseSerilogRequestLogging();
 
-// 4.2 Cấu hình Swagger cho môi trường phát triển
+// 4.2 Bật Swagger chỉ trong môi trường phát triển
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LmsMini API v1"));
 }
 
-// 4.3 Cấu hình các middleware khác
+// 4.3 Các middleware chung: HTTPS, Authorization, Controllers
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

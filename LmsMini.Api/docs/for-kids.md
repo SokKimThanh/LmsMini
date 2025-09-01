@@ -1,4 +1,4 @@
-﻿Tài liệu đơn giản cho học sinh lớp 5
+Tài liệu đơn giản cho học sinh lớp 5
 
 Mục đích: giải thích dễ hiểu các phần chính của chương trình LmsMini bằng lời đơn giản và ví dụ.
 

@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using LmsMini.Application.Interfaces;
 using LmsMini.Domain.Entities;
 using LmsMini.Application.Features.Courses.Commands;
