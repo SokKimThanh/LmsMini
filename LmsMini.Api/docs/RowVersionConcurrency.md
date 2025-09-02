@@ -4,6 +4,7 @@
 RowVersion giống như một "nhãn dán phiên bản" trên một quyển sổ. Khi một người sửa nội dung, nhãn này sẽ thay đổi. Nếu người khác cố gắng sửa cùng một trang nhưng dùng nhãn cũ, hệ thống sẽ phát hiện và báo là có xung đột — tránh việc ghi đè lên công việc của người khác.
 
 Tài liệu nhỏ này giải thích cách cấu hình và xử lý trường RowVersion (SQL rowversion / timestamp) trong dự án LmsMini. Bao gồm: behaviour khi scaffold, cấu hình EF Core, mapping DTO, xử lý xung đột khi SaveChanges và ví dụ code ngắn.
+<img width="908" height="697" alt="image" src="https://github.com/user-attachments/assets/acff007f-c173-4369-8c27-ece79b2bb141" />
 
 ---
 
