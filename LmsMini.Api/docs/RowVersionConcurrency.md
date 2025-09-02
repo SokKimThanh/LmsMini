@@ -1,5 +1,4 @@
 ﻿# RowVersion & Optimistic Concurrency — Hướng dẫn nhanh
-<img width="908" height="697" alt="image" src="https://github.com/user-attachments/assets/1b175d0e-c94d-4611-88e6-218320dd945b" />
 
 📌 Tóm tắt nội dung chính
 Tài liệu nói về RowVersion (hay rowversion/timestamp trong SQL) và cách dùng nó để tránh ghi đè dữ liệu khi nhiều người cùng sửa — gọi là optimistic concurrency.
@@ -8,78 +7,56 @@ Tài liệu nói về RowVersion (hay rowversion/timestamp trong SQL) và cách 
 
 - RowVersion là một cột đặc biệt trong bảng DB; mỗi khi bản ghi bị sửa, giá trị này tự động thay đổi.
 - Khi client gửi yêu cầu cập nhật, EF Core sẽ so sánh RowVersion hiện tại trong DB với RowVersion mà client gửi.
-- Nếu khác nhau → có người đã sửa trước đó → phát hiện xung đột (DbUpdateConcurrencyException) và tránh ghi đè dữ liệu.
+- Nếu khác nhau → có người đã sửa trước đó → phát hiện xung đột và tránh ghi đè dữ liệu.
 
-Các phần chính trong tài liệu:
-
-- Mục đích: Dùng RowVersion để phát hiện xung đột khi nhiều người cùng cập nhật.
-- Scaffold từ DB: EF sẽ tạo property `byte[] RowVersion` và cấu hình `.IsRowVersion().IsConcurrencyToken()`.
-- Cấu hình EF Core: Có thể dùng Fluent API hoặc `[Timestamp]` attribute.
-- DTO & mapping: Không gửi trực tiếp `byte[]` cho client; nếu cần thì encode Base64.
-- Xử lý lỗi: Bắt `DbUpdateConcurrencyException` và trả HTTP 409 Conflict.
-- Ví dụ code: Handler cập nhật có kiểm tra RowVersion.
-- Testing: Mô phỏng tình huống 2 client cùng sửa để test lỗi xung đột.
-- Best practices: Luôn giữ RowVersion trong DB, cấu hình đúng, và document rõ cho frontend.
+Các phần chính trong tài liệu (theo SDD):
+- Mục đích, Cấu hình EF Core, Scaffold, DTO/ETag mapping, HTTP contract (ETag/If‑Match), Error codes, Ví dụ HTTP, Test cases.
 
 ---
 
-## Giải thích cho học sinh lớp 5 (ngắn gọn)
-Hãy tưởng tượng RowVersion giống như một "tem ngày giờ" dán trên một cuốn sổ lớp:
+## Giải thích cho học sinh lớp 5 (rút gọn, dễ hiểu)
+- Hãy tưởng tượng mỗi quyển sổ (một bản ghi dữ liệu) có một nhãn nhỏ gọi là "phiên bản" dán ở góc. Mỗi lần ai đó sửa sổ, nhãn này thay đổi — giống như dán một sticker mới có số khác.
+- Khi em đọc sổ và muốn sửa, em cũng mang theo nhãn của mình. Trước khi ghi, cô giáo kiểm tra nhãn trên sổ thật và nhãn em mang theo.
+  - Nếu giống nhau → cô cho em sửa.
+  - Nếu khác → có người đã sửa trước, cô sẽ nói: "Không được — phải xem lại" để tránh em ghi đè mất công người khác.
 
-- Mỗi khi ai đó viết vào sổ, tem sẽ đổi sang một số mới.
-- Nếu bạn cầm bản photo cũ của trang sổ (tem cũ) và viết đè, cô giáo sẽ phát hiện: “Ơ, có người đã viết trước rồi!” → không cho ghi đè.
+Ví dụ ngắn:
+- Em A mở trang, thấy sticker là 1.
+- Em B cũng mở và sửa, sticker đổi thành 2.
+- Em A cố gắng ghi tiếp nhưng vẫn mang sticker 1 → hệ thống phát hiện và bảo em A tải trang mới trước khi sửa.
 
-Nhờ vậy, không ai vô tình xóa mất nội dung mới nhất của người khác.
-
----
-
-Tài liệu này giải thích cách cấu hình và xử lý trường RowVersion (SQL rowversion / timestamp) trong dự án LmsMini. Bao gồm: behaviour khi scaffold, cấu hình EF Core, mapping DTO, xử lý xung đột khi SaveChanges và ví dụ code ngắn.
-
----
-
-## 1. Mục đích
-RowVersion được dùng làm optimistic concurrency token. Khi nhiều client cùng cập nhật cùng một bản ghi, EF sẽ phát hiện xung đột và ném `DbUpdateConcurrencyException`. Ta có thể bắt lỗi này để trả `409 Conflict`, retry hoặc hợp nhất theo nghiệp vụ.
+Tóm lại: RowVersion là "sticker phiên bản" giúp chương trình giữ an toàn cho dữ liệu khi nhiều người cùng sửa.
 
 ---
 
-## 2. Scaffold từ database
-- Nếu cột trong DB là kiểu `rowversion` / `timestamp`, lệnh `dotnet ef dbcontext scaffold` thường tạo:
-  - Property `byte[] RowVersion` trong entity.
-  - Fluent API trong `OnModelCreating` với `.IsRowVersion()` / `.IsConcurrencyToken()` trong DbContext.
-- Nếu scaffold không sinh Fluent API, thêm thủ công (xem phần 3).
+## Quan trọng: phân biệt HTTP status cho concurrency
+- Khi client gửi If‑Match (ETag) và giá trị không khớp với RowVersion hiện tại → trả 412 Precondition Failed (theo SDD).
+- Khi có xung đột nghiệp vụ (business conflict) hoặc duplicate/idempotency → trả 409 Conflict.
+- DbUpdateConcurrencyException từ EF Core có thể map sang 412 nếu client dùng If‑Match/ETag, hoặc 409/ERR_CONCURRENCY_CONFLICT theo hợp đồng API.
 
 ---
 
-## 3. Cấu hình EF Core (DbContext)
-Ví dụ (đã có trong `LmsDbContext`):
+## 1. Scope — entities khuyến nghị dùng RowVersion (theo SDD)
+Áp dụng optimistic concurrency (ROWVERSION) cho các bảng thay đổi thường xuyên:
+- Courses, Lessons, Questions, Options, Modules, Quizzes
+
+(Giải pháp: thêm cột ROWVERSION trong DB và map `byte[] RowVersion` trong entity.)
+
+---
+
+## 2. Cấu hình EF Core (DbContext)
+Ví dụ Fluent API:
 
 ```csharp
 modelBuilder.Entity<Course>(entity =>
 {
-    // ... các cấu hình khác ...
     entity.Property(e => e.RowVersion)
           .IsRowVersion()
           .IsConcurrencyToken();
 });
 ```
 
-Ghi chú: `.IsRowVersion()` đảm bảo EF hiểu đó là trường rowversion và sẽ so sánh giá trị khi update.
-
----
-
-## 4. Entity (ví dụ)
-Entity scaffold thường trông như sau:
-
-```csharp
-public partial class Course
-{
-    public Guid Id { get; set; }
-    // ... các trường khác ...
-    public byte[] RowVersion { get; set; } = null!;
-}
-```
-
-Bạn có thể dùng attribute thay cho Fluent API:
+Hoặc attribute:
 
 ```csharp
 [Timestamp]
@@ -88,110 +65,117 @@ public byte[] RowVersion { get; set; }
 
 ---
 
-## 5. DTO & mapping
-- KHÔNG trả trực tiếp `byte[] RowVersion` cho client nếu không cần thiết.
-- Nếu muốn client gửi giá trị RowVersion khi cập nhật (optimistic concurrency), mã hóa Base64.
+## 3. ETag ↔ RowVersion mapping (API contract)
+- Server trả header ETag trên response GET (đóng gói rowversion base64):
+  ETag: "\"{rowversion-base64}\""
+- Client khi cập nhật PUT/PATCH gửi header If‑Match: giá trị ETag đã đọc trước đó.
+- Nếu mismatch → server trả 412 Precondition Failed với envelope lỗi chuẩn (xem phần lỗi).
 
-Ví dụ DTO nhận cập nhật (client gửi `RowVersionBase64`):
+Ví dụ GET response (tóm tắt):
 
-```csharp
-public class UpdateCourseDto
-{
-    public Guid Id { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    // RowVersion ở client dưới dạng Base64
-    public string? RowVersionBase64 { get; set; }
-}
-```
+HTTP/1.1 200 OK
+ETag: "\"AQIDBAUGBwg=\""
+Content-Type: application/json
 
-Trong handler: chuyển Base64 -> byte[] và gán vào entity trước SaveChanges.
+{ "id": "...", "title": "...", "description": "..." }
 
-```csharp
-if (!string.IsNullOrEmpty(dto.RowVersionBase64))
-{
-    course.RowVersion = Convert.FromBase64String(dto.RowVersionBase64);
-}
-```
+Ví dụ PUT request với If‑Match:
+
+PUT /api/v1/courses/{id}
+If‑Match: "\"AQIDBAUGBwg=\""
+Content-Type: application/json
+
+{ "title": "Tiêu đề mới" }
 
 ---
 
-## 6. Xử lý DbUpdateConcurrencyException (repository / handler)
-Ví dụ repository save với xử lý xung đột:
+## 4. Xử lý lỗi & error contract (theo SDD)
+- Mã lỗi liên quan:
+  - ERR_PRECONDITION → HTTP 412 (ETag/If‑Match mismatch)
+  - ERR_CONCURRENCY_CONFLICT → HTTP 409 (xung đột nghiệp vụ do concurrent updates)
+- Response envelope (mẫu):
 
-```csharp
-try
-{
-    await _context.SaveChangesAsync(cancellationToken);
-}
-catch (DbUpdateConcurrencyException ex)
-{
-    // Log, mapping hoặc ném lại một exception chuyên biệt
-    throw new ConcurrencyException("Entity update conflict", ex);
-}
-```
+HTTP/1.1 412 Precondition Failed
+Content-Type: application/json
 
-Trong handler / controller, bắt `ConcurrencyException` và trả HTTP 409:
-
-```csharp
-try
 {
-    await _mediator.Send(command);
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "ERR_PRECONDITION",
+    "message": "ETag mismatch - resource was modified",
+    "details": null
+  },
+  "traceId": "...",
 }
-catch (ConcurrencyException)
-{
-    return Conflict(new { message = "Version conflict. Please reload and try again." });
-}
-```
 
-Hoặc trả `409` kèm dữ liệu hiện tại để client hiển thị và refetch.
+Khi bắt DbUpdateConcurrencyException ở repository/handler, transform sang ConcurrencyException và map sang ERR_PRECONDITION (412) nếu request có If‑Match; nếu không, trả 409/ERR_CONCURRENCY_CONFLICT theo chính sách.
 
 ---
 
-## 7. Ví dụ hoàn chỉnh (handler update đơn giản)
+## 5. DTO — RowVersion exposure rules
+- Không trả trực tiếp `byte[]` raw cho client.
+- Nếu client cần gửi lại rowversion thì server encode Base64 và trả trong ETag header hoặc trong DTO dưới tên `rowVersionBase64` (ưu tiên ETag + If‑Match HTTP header).
+- Khi nhận DTO có rowVersionBase64: decode bằng Convert.FromBase64String trước gán vào entity.
+
+---
+
+## 6. Ví dụ handler flow (chi tiết)
+1. GET /api/v1/courses/{id} → trả CourseDto + ETag: "\"{base64}\"".
+2. Client chỉnh sửa và gửi PUT kèm If‑Match.
+3. Controller chuyển request thành command + gán rowVersion (nếu cần); Handler gọi repository save.
+4. Repository gọi SaveChangesAsync; nếu EF ném DbUpdateConcurrencyException → handler map và trả 412/409 theo chính sách.
+
+Controller pseudo‑code (ngắn):
 
 ```csharp
-public async Task<Unit> Handle(UpdateCourseCommand request, CancellationToken ct)
+[HttpPut("{id:guid}")]
+public async Task<IActionResult> UpdateCourse(Guid id, UpdateCourseRequest req)
 {
-    var course = await _repository.GetByIdAsync(request.Id, ct);
-    if (course == null) throw new NotFoundException();
+    var ifMatch = Request.Headers["If-Match"].FirstOrDefault();
 
-    course.Title = request.Title;
-    course.Description = request.Description;
-
-    if (!string.IsNullOrEmpty(request.RowVersionBase64))
-        course.RowVersion = Convert.FromBase64String(request.RowVersionBase64);
+    // If‑Match format "\"base64\"" -> extract and decode
+    if (!string.IsNullOrEmpty(ifMatch))
+    {
+        var raw = ifMatch.Trim('"');
+        req.RowVersionBase64 = raw; // or set on command
+    }
 
     try
     {
-        await _repository.SaveChangesAsync(ct);
+        await _mediator.Send(command);
+        return NoContent();
     }
-    catch (DbUpdateConcurrencyException)
+    catch (ConcurrencyException ex)
     {
-        throw new ConcurrencyException("Update failed due to concurrency");
+        // map to 412 or 409 depending on presence of If‑Match
+        return StatusCode(412, new ApiErrorResponse("ERR_PRECONDITION", "ETag mismatch"));
     }
-
-    return Unit.Value;
 }
 ```
 
 ---
 
-## 8. Kiểm tra & testing
-- Test scenario:
-  1. Client A đọc resource (lấy rowVersion, có thể Base64).
-  2. Client B cập nhật resource.
-  3. Client A cố gắng cập nhật lại dùng rowVersion cũ → server ném 409.
-- Viết unit/integration tests mô phỏng `DbUpdateConcurrencyException`.
+## 7. Test cases (integration) — checklist
+1. ETag match → PUT success (204 No Content). Steps: GET (read ETag) → PUT with If‑Match = that ETag → assert 204.
+2. ETag mismatch → PUT returns 412 with ERR_PRECONDITION. Steps: GET ETag1; simulate concurrent update (change RowVersion); PUT with old ETag → assert 412.
+3. Business conflict → 409 ERR_CONCURRENCY_CONFLICT. Scenario: two clients perform conflicting business operations causing application-level conflict (e.g., duplicate code) → assert 409.
+4. Ensure ETag header format: ETag: "\"{base64}\"" and If‑Match uses same value.
 
 ---
 
-## 9. Tóm tắt (best practices)
-- Giữ `RowVersion` trong DB và cấu hình `.IsRowVersion()` trong DbContext.
-- Khi trả DTO cho client: omit `RowVersion` hoặc encode Base64 nếu client cần gửi lại.
-- Bắt `DbUpdateConcurrencyException` và xử lý trả 409 hoặc retry theo nghiệp vụ.
-- Document flow cho frontend (client phải gửi lại rowVersion khi cập nhật nếu dùng optimistic concurrency).
+## 8. Logging & observability
+- Log DbUpdateConcurrencyException with traceId and involved entity id(s).
+- Expose traceId in error envelope for debugging.
 
 ---
 
-Nếu bạn muốn, tôi có thể: thêm ví dụ handler/repository file vào repo, cập nhật ImplementCreateCourseGuide.md với link tới tài liệu này, hoặc tạo test case mẫu. Chọn một hành động và tôi sẽ thực hiện.
+## 9. Best practices (tóm tắt)
+- Áp dụng RowVersion cho entities được liệt kê ở Scope (SDD).
+- Dùng ETag + If‑Match cho HTTP contract; trả 412 cho precondition failure.
+- Không expose raw byte[]; sử dụng Base64 trong ETag hoặc DTO khi cần.
+- Bắt DbUpdateConcurrencyException, map sang ConcurrencyException, trả mã lỗi chuẩn theo SDD.
+
+---
+
+Nếu bạn muốn, tôi sẽ: thêm ví dụ controller/handler thực tế, thêm wrapper repository xử lý DbUpdateConcurrencyException, hoặc tạo test project mẫu cho các test cases trên. Chọn hành động và tôi sẽ thực hiện.
