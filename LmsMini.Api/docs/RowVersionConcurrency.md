@@ -1,52 +1,52 @@
-# RowVersion & Optimistic Concurrency � H�?ng d?n nhanh
+﻿# RowVersion & Optimistic Concurrency — Hướng dẫn nhanh
 
-T�i li?u nh? n�y gi?i th�ch c�ch c?u h?nh v� x? l? tr�?ng RowVersion (SQL rowversion / timestamp) trong d? �n LmsMini. Bao g?m: behaviour khi scaffold, c?u h?nh EF Core, mapping DTO, x? l? xung �?t khi SaveChanges v� v� d? code ng?n.
-
----
-
-## 1. M?c ��ch
-RowVersion ��?c d�ng l�m optimistic concurrency token. Khi nhi?u client c�ng c?p nh?t c�ng m?t b?n ghi, EF s? ph�t hi?n xung �?t v� n�m `DbUpdateConcurrencyException`. Ta c� th? b?t l?i n�y �? tr? `409 Conflict`, retry ho?c h?p nh?t theo nghi?p v?.
+Tài liệu nhỏ này giải thích cách cấu hình và xử lý trường RowVersion (SQL rowversion / timestamp) trong dự án LmsMini. Bao gồm: behaviour khi scaffold, cấu hình EF Core, mapping DTO, xử lý xung đột khi SaveChanges và ví dụ code ngắn.
 
 ---
 
-## 2. Scaffold t? database
-- N?u c?t trong DB l� ki?u `rowversion` / `timestamp`, l?nh `dotnet ef dbcontext scaffold` th�?ng t?o:
+## 1. Mục đích
+RowVersion được dùng làm optimistic concurrency token. Khi nhiều client cùng cập nhật cùng một bản ghi, EF sẽ phát hiện xung đột và ném `DbUpdateConcurrencyException`. Ta có thể bắt lỗi này để trả `409 Conflict`, retry hoặc hợp nhất theo nghiệp vụ.
+
+---
+
+## 2. Scaffold từ database
+- Nếu cột trong DB là kiểu `rowversion` / `timestamp`, lệnh `dotnet ef dbcontext scaffold` thường tạo:
   - Property `byte[] RowVersion` trong entity.
-  - Fluent API trong `OnModelCreating` v?i `.IsRowVersion()` / `.IsConcurrencyToken()` trong DbContext.
-- N?u scaffold kh�ng sinh Fluent API, th�m th? c�ng (xem ph?n 3).
+  - Fluent API trong `OnModelCreating` với `.IsRowVersion()` / `.IsConcurrencyToken()` trong DbContext.
+- Nếu scaffold không sinh Fluent API, thêm thủ công (xem phần 3).
 
 ---
 
-## 3. C?u h?nh EF Core (DbContext)
-V� d? (�? c� trong `LmsDbContext`):
+## 3. Cấu hình EF Core (DbContext)
+Ví dụ (đã có trong `LmsDbContext`):
 
 ```csharp
 modelBuilder.Entity<Course>(entity =>
 {
-    // ... c�c c?u h?nh kh�c ...
+    // ... các cấu hình khác ...
     entity.Property(e => e.RowVersion)
           .IsRowVersion()
           .IsConcurrencyToken();
 });
 ```
 
-Ghi ch�: `.IsRowVersion()` �?m b?o EF hi?u �� l� tr�?ng rowversion v� s? so s�nh gi� tr? khi update.
+Ghi chú: `.IsRowVersion()` đảm bảo EF hiểu đó là trường rowversion và sẽ so sánh giá trị khi update.
 
 ---
 
-## 4. Entity (v� d?)
-Entity scaffold th�?ng tr�ng nh� sau:
+## 4. Entity (ví dụ)
+Entity scaffold thường trông như sau:
 
 ```csharp
 public partial class Course
 {
     public Guid Id { get; set; }
-    // ... c�c tr�?ng kh�c ...
+    // ... các trường khác ...
     public byte[] RowVersion { get; set; } = null!;
 }
 ```
 
-B?n c� th? d�ng attribute thay cho Fluent API:
+Bạn có thể dùng attribute thay cho Fluent API:
 
 ```csharp
 [Timestamp]
@@ -56,10 +56,10 @@ public byte[] RowVersion { get; set; }
 ---
 
 ## 5. DTO & mapping
-- KH�NG tr? tr?c ti?p `byte[] RowVersion` cho client n?u kh�ng c?n thi?t.
-- N?u mu?n client g?i gi� tr? RowVersion khi c?p nh?t (optimistic concurrency), m? h�a Base64.
+- KHÔNG trả trực tiếp `byte[] RowVersion` cho client nếu không cần thiết.
+- Nếu muốn client gửi giá trị RowVersion khi cập nhật (optimistic concurrency), mã hóa Base64.
 
-V� d? DTO nh?n c?p nh?t (client g?i `RowVersionBase64`):
+Ví dụ DTO nhận cập nhật (client gửi `RowVersionBase64`):
 
 ```csharp
 public class UpdateCourseDto
@@ -67,12 +67,12 @@ public class UpdateCourseDto
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    // RowVersion ? client d�?i d?ng Base64
+    // RowVersion ở client dưới dạng Base64
     public string? RowVersionBase64 { get; set; }
 }
 ```
 
-Trong handler: chuy?n Base64 -> byte[] v� g�n v�o entity tr�?c SaveChanges.
+Trong handler: chuyển Base64 -> byte[] và gán vào entity trước SaveChanges.
 
 ```csharp
 if (!string.IsNullOrEmpty(dto.RowVersionBase64))
@@ -83,8 +83,8 @@ if (!string.IsNullOrEmpty(dto.RowVersionBase64))
 
 ---
 
-## 6. X? l? DbUpdateConcurrencyException (repository / handler)
-V� d? repository save v?i x? l? xung �?t:
+## 6. Xử lý DbUpdateConcurrencyException (repository / handler)
+Ví dụ repository save với xử lý xung đột:
 
 ```csharp
 try
@@ -93,12 +93,12 @@ try
 }
 catch (DbUpdateConcurrencyException ex)
 {
-    // Log, mapping ho?c n�m l?i m?t exception chuy�n bi?t
+    // Log, mapping hoặc ném lại một exception chuyên biệt
     throw new ConcurrencyException("Entity update conflict", ex);
 }
 ```
 
-Trong handler / controller, b?t `ConcurrencyException` v� tr? HTTP 409:
+Trong handler / controller, bắt `ConcurrencyException` và trả HTTP 409:
 
 ```csharp
 try
@@ -111,11 +111,11 @@ catch (ConcurrencyException)
 }
 ```
 
-Ho?c tr? `409` k�m d? li?u hi?n t?i �? client hi?n th? v� refetch.
+Hoặc trả `409` kèm dữ liệu hiện tại để client hiển thị và refetch.
 
 ---
 
-## 7. V� d? ho�n ch?nh (handler update ��n gi?n)
+## 7. Ví dụ hoàn chỉnh (handler update đơn giản)
 
 ```csharp
 public async Task<Unit> Handle(UpdateCourseCommand request, CancellationToken ct)
@@ -144,21 +144,21 @@ public async Task<Unit> Handle(UpdateCourseCommand request, CancellationToken ct
 
 ---
 
-## 8. Ki?m tra & testing
+## 8. Kiểm tra & testing
 - Test scenario:
-  1. Client A �?c resource (l?y rowVersion, c� th? Base64).
-  2. Client B c?p nh?t resource.
-  3. Client A c? g?ng c?p nh?t l?i d�ng rowVersion c? ? server n�m 409.
-- Vi?t unit/integration tests m� ph?ng `DbUpdateConcurrencyException`.
+  1. Client A đọc resource (lấy rowVersion, có thể Base64).
+  2. Client B cập nhật resource.
+  3. Client A cố gắng cập nhật lại dùng rowVersion cũ → server ném 409.
+- Viết unit/integration tests mô phỏng `DbUpdateConcurrencyException`.
 
 ---
 
-## 9. T�m t?t (best practices)
-- Gi? `RowVersion` trong DB v� c?u h?nh `.IsRowVersion()` trong DbContext.
-- Khi tr? DTO cho client: omit `RowVersion` ho?c encode Base64 n?u client c?n g?i l?i.
-- B?t `DbUpdateConcurrencyException` v� x? l? tr? 409 ho?c retry theo nghi?p v?.
-- Document flow cho frontend (client ph?i g?i l?i rowVersion khi c?p nh?t n?u d�ng optimistic concurrency).
+## 9. Tóm tắt (best practices)
+- Giữ `RowVersion` trong DB và cấu hình `.IsRowVersion()` trong DbContext.
+- Khi trả DTO cho client: omit `RowVersion` hoặc encode Base64 nếu client cần gửi lại.
+- Bắt `DbUpdateConcurrencyException` và xử lý trả 409 hoặc retry theo nghiệp vụ.
+- Document flow cho frontend (client phải gửi lại rowVersion khi cập nhật nếu dùng optimistic concurrency).
 
 ---
 
-N?u b?n mu?n, t�i c� th?: th�m v� d? handler/repository file v�o repo, c?p nh?t ImplementCreateCourseGuide.md v?i link t?i t�i li?u n�y, ho?c t?o test case m?u. Ch?n m?t h�nh �?ng v� t�i s? th?c hi?n.
+Nếu bạn muốn, tôi có thể: thêm ví dụ handler/repository file vào repo, cập nhật ImplementCreateCourseGuide.md với link tới tài liệu này, hoặc tạo test case mẫu. Chọn một hành động và tôi sẽ thực hiện.
