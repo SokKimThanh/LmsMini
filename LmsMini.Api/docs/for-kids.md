@@ -10,6 +10,12 @@ Mục đích: giải thích dễ hiểu các phần chính của chương trình
 - Giống như một tủ hồ sơ để cất thông tin (tên khóa học, mô tả...).
 - Khi chương trình cần, nó mở tủ lấy hoặc bỏ hồ sơ vào.
 
+2.1) RowVersion (nhãn phiên bản)
+- RowVersion giống như một "nhãn phiên bản" dán trên mỗi hồ sơ trong tủ.
+- Mỗi khi hồ sơ được sửa, nhãn này sẽ thay đổi tự động.
+- Khi ai đó muốn cập nhật hồ sơ, hệ thống kiểm tra nhãn: nếu nhãn của họ khác với nhãn trong tủ nghĩa là ai đó đã sửa trước đó — hệ thống sẽ cảnh báo để tránh ghi đè.
+- Tác dụng: giúp tránh việc hai người cùng sửa làm mất dữ liệu mới của nhau (gọi là optimistic concurrency).
+
 3) MediatR - người đưa thư
 - Hãy tưởng tượng có một người đưa thư trong trường.
 - Khi ai đó gửi yêu cầu (ví dụ: tạo khóa học mới), họ đưa cho người đưa thư.
@@ -47,4 +53,4 @@ Kết luận ngắn gọn:
 - Chương trình gồm nhiều phần nhỏ: ghi nhật ký, lưu dữ liệu, gửi yêu cầu, kiểm tra thông tin và hiển thị hướng dẫn.
 - Mỗi phần có một nhiệm vụ riêng. Khi phối hợp, chương trình hoạt động trơn tru.
 
-Muốn thử một ví dụ nhỏ (ví dụ: tạo khóa học mới) để mình giải thích từng bước không?Nếu em muốn, có thể hỏi ví dụ nhỏ để thực hành (ví dụ: tạo một khóa học mới) và mình sẽ mô tả từng bước bằng ngôn ngữ đơn giản.
+Muốn thử một ví dụ nhỏ (ví dụ: tạo khóa học mới) để mình giải thích từng bước không? Nếu em muốn, có thể hỏi ví dụ nhỏ để thực hành (ví dụ: tạo một khóa học mới) và mình sẽ mô tả từng bước bằng ngôn ngữ đơn giản.
