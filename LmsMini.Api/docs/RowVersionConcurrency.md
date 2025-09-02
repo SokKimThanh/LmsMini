@@ -1,11 +1,11 @@
 # RowVersion & Optimistic Concurrency — Hý?ng d?n nhanh
 
-Tài li?u nh? này gi?i thích cách c?u h?nh và x? l? trý?ng RowVersion (SQL rowversion / timestamp) trong d? án LmsMini. Bao g?m: scaffold behavior, c?u h?nh EF Core, mapping DTO, x? l? xung ð?t khi SaveChanges và ví d? code ng?n.
+Tài li?u nh? này gi?i thích cách c?u h?nh và x? l? trý?ng RowVersion (SQL rowversion / timestamp) trong d? án LmsMini. Bao g?m: scaffold behaviour, c?u h?nh EF Core, mapping DTO, x? l? xung ð?t khi SaveChanges và ví d? code ng?n.
 
 ---
 
 ## 1. M?c ðích
-RowVersion ðý?c dùng làm optimistic concurrency token. Khi nhi?u client cùng c?p nh?t cùng m?t b?n ghi, EF s? phát hi?n xung ð?t và ném DbUpdateConcurrencyException. Ta có th? b?t l?i này ð? tr? 409 Conflict, retry ho?c h?p nh?t theo nghi?p v?.
+RowVersion ðý?c dùng làm optimistic concurrency token. Khi nhi?u client cùng c?p nh?t cùng m?t b?n ghi, EF s? phát hi?n xung ð?t và ném `DbUpdateConcurrencyException`. Ta có th? b?t l?i này ð? tr? `409 Conflict`, retry ho?c h?p nh?t theo nghi?p v?.
 
 ---
 
@@ -47,6 +47,7 @@ public partial class Course
 ```
 
 B?n có th? dùng attribute thay cho Fluent API:
+
 ```csharp
 [Timestamp]
 public byte[] RowVersion { get; set; }
@@ -55,10 +56,10 @@ public byte[] RowVersion { get; set; }
 ---
 
 ## 5. DTO & mapping
-- KHÔNG tr? tr?c ti?p `byte[] RowVersion` vào client n?u không c?n thi?t.
+- KHÔNG tr? tr?c ti?p `byte[] RowVersion` cho client n?u không c?n thi?t.
 - N?u mu?n client g?i giá tr? RowVersion khi c?p nh?t (optimistic concurrency), m? hóa Base64.
 
-Ví d? DTO nh?n c?p nh?t (client g?i rowVersionBase64):
+Ví d? DTO nh?n c?p nh?t (client g?i `RowVersionBase64`):
 
 ```csharp
 public class UpdateCourseDto
@@ -66,7 +67,7 @@ public class UpdateCourseDto
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    // rowversion ? client dý?i d?ng Base64
+    // RowVersion ? client dý?i d?ng Base64
     public string? RowVersionBase64 { get; set; }
 }
 ```
@@ -97,7 +98,7 @@ catch (DbUpdateConcurrencyException ex)
 }
 ```
 
-Trong handler / controller, b?t ConcurrencyException và tr? HTTP 409:
+Trong handler / controller, b?t `ConcurrencyException` và tr? HTTP 409:
 
 ```csharp
 try
@@ -145,10 +146,10 @@ public async Task<Unit> Handle(UpdateCourseCommand request, CancellationToken ct
 
 ## 8. Ki?m tra & testing
 - Test scenario:
-  1. Client A ð?c resource (L?y rowVersion, có th? Base64).
+  1. Client A ð?c resource (l?y rowVersion, có th? Base64).
   2. Client B c?p nh?t resource.
-  3. Client A c? g?ng c?p nh?t l?i dùng rowVersion c? -> server ném 409.
-- Vi?t unit/integration tests mô ph?ng DbUpdateConcurrencyException.
+  3. Client A c? g?ng c?p nh?t l?i dùng rowVersion c? ? server ném 409.
+- Vi?t unit/integration tests mô ph?ng `DbUpdateConcurrencyException`.
 
 ---
 
