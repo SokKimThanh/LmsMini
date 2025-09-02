@@ -1,14 +1,15 @@
-using MediatR;
+﻿using MediatR;
 using System;
 
 namespace LmsMini.Application.Features.Courses.Commands
 {
     /// <summary>
-    /// DTO for creating a new course.
+    /// DTO để tạo một khóa học mới.
     /// </summary>
     public class CreateCourseCommand : IRequest<Guid>
     {
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public Guid CreatedBy { get; set; }
     }
 }

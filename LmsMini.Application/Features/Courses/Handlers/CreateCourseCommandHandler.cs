@@ -30,7 +30,7 @@ namespace LmsMini.Application.Features.Courses.Handlers
                 Title = request.Title,
                 Description = request.Description,
                 Status = "Draft",
-                CreatedBy = Guid.Empty, // Thay bằng ID người dùng thực tế nếu có
+                CreatedBy = request.CreatedBy, // Thay bằng ID người dùng thực tế nếu có
                 CreatedAt = DateTime.UtcNow,
                 IsDeleted = false
             };
