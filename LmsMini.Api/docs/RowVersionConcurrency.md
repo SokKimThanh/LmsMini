@@ -1,10 +1,38 @@
 ﻿# RowVersion & Optimistic Concurrency — Hướng dẫn nhanh
 
-**Giải thích cho học sinh lớp 5 (ngắn gọn):**
-RowVersion giống như một "nhãn dán phiên bản" trên một quyển sổ. Khi một người sửa nội dung, nhãn này sẽ thay đổi. Nếu người khác cố gắng sửa cùng một trang nhưng dùng nhãn cũ, hệ thống sẽ phát hiện và báo là có xung đột — tránh việc ghi đè lên công việc của người khác.
+📌 Tóm tắt nội dung chính
+Tài liệu nói về RowVersion (hay rowversion/timestamp trong SQL) và cách dùng nó để tránh ghi đè dữ liệu khi nhiều người cùng sửa — gọi là optimistic concurrency.
 
-Tài liệu nhỏ này giải thích cách cấu hình và xử lý trường RowVersion (SQL rowversion / timestamp) trong dự án LmsMini. Bao gồm: behaviour khi scaffold, cấu hình EF Core, mapping DTO, xử lý xung đột khi SaveChanges và ví dụ code ngắn.
-<img width="908" height="697" alt="image" src="https://github.com/user-attachments/assets/acff007f-c173-4369-8c27-ece79b2bb141" />
+Ý tưởng chính:
+
+- RowVersion là một cột đặc biệt trong bảng DB; mỗi khi bản ghi bị sửa, giá trị này tự động thay đổi.
+- Khi client gửi yêu cầu cập nhật, EF Core sẽ so sánh RowVersion hiện tại trong DB với RowVersion mà client gửi.
+- Nếu khác nhau → có người đã sửa trước đó → phát hiện xung đột (DbUpdateConcurrencyException) và tránh ghi đè dữ liệu.
+
+Các phần chính trong tài liệu:
+
+- Mục đích: Dùng RowVersion để phát hiện xung đột khi nhiều người cùng cập nhật.
+- Scaffold từ DB: EF sẽ tạo property `byte[] RowVersion` và cấu hình `.IsRowVersion().IsConcurrencyToken()`.
+- Cấu hình EF Core: Có thể dùng Fluent API hoặc `[Timestamp]` attribute.
+- DTO & mapping: Không gửi trực tiếp `byte[]` cho client; nếu cần thì encode Base64.
+- Xử lý lỗi: Bắt `DbUpdateConcurrencyException` và trả HTTP 409 Conflict.
+- Ví dụ code: Handler cập nhật có kiểm tra RowVersion.
+- Testing: Mô phỏng tình huống 2 client cùng sửa để test lỗi xung đột.
+- Best practices: Luôn giữ RowVersion trong DB, cấu hình đúng, và document rõ cho frontend.
+
+---
+
+## Giải thích cho học sinh lớp 5 (ngắn gọn)
+Hãy tưởng tượng RowVersion giống như một "tem ngày giờ" dán trên một cuốn sổ lớp:
+
+- Mỗi khi ai đó viết vào sổ, tem sẽ đổi sang một số mới.
+- Nếu bạn cầm bản photo cũ của trang sổ (tem cũ) và viết đè, cô giáo sẽ phát hiện: “Ơ, có người đã viết trước rồi!” → không cho ghi đè.
+
+Nhờ vậy, không ai vô tình xóa mất nội dung mới nhất của người khác.
+
+---
+
+Tài liệu này giải thích cách cấu hình và xử lý trường RowVersion (SQL rowversion / timestamp) trong dự án LmsMini. Bao gồm: behaviour khi scaffold, cấu hình EF Core, mapping DTO, xử lý xung đột khi SaveChanges và ví dụ code ngắn.
 
 ---
 
