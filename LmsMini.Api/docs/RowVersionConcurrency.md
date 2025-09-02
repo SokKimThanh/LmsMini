@@ -1,6 +1,6 @@
 # RowVersion & Optimistic Concurrency — Hý?ng d?n nhanh
 
-Tài li?u nh? này gi?i thích cách c?u h?nh và x? l? trý?ng RowVersion (SQL rowversion / timestamp) trong d? án LmsMini. Bao g?m: scaffold behaviour, c?u h?nh EF Core, mapping DTO, x? l? xung ð?t khi SaveChanges và ví d? code ng?n.
+Tài li?u nh? này gi?i thích cách c?u h?nh và x? l? trý?ng RowVersion (SQL rowversion / timestamp) trong d? án LmsMini. Bao g?m: behaviour khi scaffold, c?u h?nh EF Core, mapping DTO, x? l? xung ð?t khi SaveChanges và ví d? code ng?n.
 
 ---
 
