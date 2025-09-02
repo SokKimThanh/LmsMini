@@ -49,6 +49,25 @@ Ví dụ dễ hiểu:
 - Khi một yêu cầu đến, nó đi qua nhiều trạm (ví dụ: kiểm tra bảo mật, ghi nhật ký).
 - Mỗi trạm làm một việc rồi chuyền tiếp.
 
+9) Ví dụ: Lỗi khi tạo khóa học (dành cho học sinh lớp 5)
+
+- Ví dụ dễ hiểu:
+  - Khi em nộp bài kiểm tra, thầy cô phải biết tên em có trong danh sách lớp không.
+  - Ở chương trình, khi tạo một "khóa học", chương trình cũng phải biết ai là người tạo (trường `CreatedBy`).
+
+- Điều gì đã xảy ra:
+  - Chương trình cố gắng lưu khóa học nhưng thông tin người tạo (CreatedBy) bị trống hoặc không có trong danh sách người dùng.
+  - Cơ sở dữ liệu giống như danh sách học sinh: nếu tên người tạo không có trong danh sách thì nó sẽ không nhận và trả lỗi.
+
+- Cách sửa nhanh (3 bước):
+  1. Lấy ID người dùng đang đăng nhập (người đang dùng trang web).
+  2. Gán ID đó vào trường `CreatedBy` trước khi lưu khóa học.
+  3. Trước khi lưu, kiểm tra trong bảng người dùng (AspNetUsers) xem ID đó có tồn tại không. Nếu không tồn tại, thông báo lỗi cho người dùng.
+
+- Tại sao cách này tốt:
+  - Tránh lỗi khi lưu dữ liệu.
+  - Biết rõ ai là người tạo khóa học để quản lý và kiểm tra quyền (ví dụ chỉ Admin hoặc Instructor được tạo khóa học).
+
 Kết luận ngắn gọn:
 - Chương trình gồm nhiều phần nhỏ: ghi nhật ký, lưu dữ liệu, gửi yêu cầu, kiểm tra thông tin và hiển thị hướng dẫn.
 - Mỗi phần có một nhiệm vụ riêng. Khi phối hợp, chương trình hoạt động trơn tru.

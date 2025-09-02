@@ -1,5 +1,4 @@
-﻿# RowVersion & Optimistic Concurrency — Hướng dẫn nhanh
-<img width="683" height="932" alt="image" src="https://github.com/user-attachments/assets/4a6f7282-9ad1-46eb-af16-687ca10ea31c" />
+﻿<img width="683" height="932" alt="image" src="https://github.com/user-attachments/assets/4a6f7282-9ad1-46eb-af16-687ca10ea31c" />
 <img width="908" height="697" alt="image" src="https://github.com/user-attachments/assets/c02885c7-50cc-4b55-adf1-23dfdc82b060" />
 
 📌 Tóm tắt nội dung chính
