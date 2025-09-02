@@ -1,4 +1,5 @@
 ﻿# RowVersion & Optimistic Concurrency — Hướng dẫn nhanh
+<img width="908" height="697" alt="image" src="https://github.com/user-attachments/assets/1b175d0e-c94d-4611-88e6-218320dd945b" />
 
 📌 Tóm tắt nội dung chính
 Tài liệu nói về RowVersion (hay rowversion/timestamp trong SQL) và cách dùng nó để tránh ghi đè dữ liệu khi nhiều người cùng sửa — gọi là optimistic concurrency.
