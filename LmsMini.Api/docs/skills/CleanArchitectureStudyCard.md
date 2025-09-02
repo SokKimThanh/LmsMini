@@ -57,6 +57,37 @@ Mục tiêu: nhớ nhanh luồng UI → API → Application → Domain → Infra
 
 ---
 
+## Thêm: Hành động cụ thể lấy từ ImplementCreateCourseGuide (actionable)
+- Các file cần hoàn thiện/kiểm tra:
+  - LmsMini.Infrastructure/LmsDbContext.cs: thêm DbSet<Course> và cấu hình RowVersion.
+  - LmsMini.Application/DTOs/CourseDto.cs: DTO trả cho client.
+  - Application/Features/Courses/Queries: GetCoursesQuery, GetCourseByIdQuery + handlers.
+  - Application/Mappings/CourseProfile.cs: mapping Course → CourseDto.
+  - Api/Controllers/CoursesController: GetCourseById nhận Guid id và gọi query.
+
+- Mã mẫu quan trọng (tham khảo nhanh):
+  - LmsDbContext: khai báo DbSet và cấu hình RowVersion:
+    modelBuilder.Entity<Course>(entity => { entity.Property(e => e.RowVersion).IsRowVersion(); });
+
+  - CourseDto (tối thiểu): Id, Code, Title, Description, Status, CreatedAt.
+
+  - GetCourseById controller snippet:
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetCourseById(Guid id)
+    {
+        var course = await _mediator.Send(new GetCourseByIdQuery(id));
+        if (course == null) return NotFound();
+        return Ok(course);
+    }
+
+- Lệnh EF thường dùng:
+  - Tạo migration:
+    dotnet ef migrations add Init_Courses -s LmsMini.Api -p LmsMini.Infrastructure
+  - Cập nhật DB:
+    dotnet ef database update -s LmsMini.Api -p LmsMini.Infrastructure
+
+---
+
 ## 3 ví dụ HTTP (curl + JSON minimal)
 1) POST create
 ```bash
@@ -77,6 +108,17 @@ Response: 200 OK, body: [ { "id":"...", "title":"..." } ]
 curl http://localhost:5000/api/courses/{id}
 ```
 Response: 200 OK or 404 NotFound
+
+---
+
+## Daily practice (kế hoạch ôn hàng ngày, 10–20 phút)
+- Ngày 1: Viết nhanh Command + Validator cho CreateCourse (5–10 phút) và đọc lại flow (5 phút).
+- Ngày 2: Viết Handler và mock ICourseRepository unit test (10–15 phút).
+- Ngày 3: Tạo AutoMapper Profile và chạy build; kiểm tra mapping bằng unit test nhỏ.
+- Ngày 4: Viết Controller endpoint và test bằng curl/Swagger.
+- Ngày 5: Tạo migration, update DB và kiểm thử end-to-end.
+
+Lặp lại tuần tiếp theo với tối ưu: thêm logging, trả lỗi rõ ràng (400), xử lý conflict (409) và tests.
 
 ---
 
