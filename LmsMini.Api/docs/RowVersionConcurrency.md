@@ -1,5 +1,8 @@
 ﻿# RowVersion & Optimistic Concurrency — Hướng dẫn nhanh
 
+**Giải thích cho học sinh lớp 5 (ngắn gọn):**
+RowVersion giống như một "nhãn dán phiên bản" trên một quyển sổ. Khi một người sửa nội dung, nhãn này sẽ thay đổi. Nếu người khác cố gắng sửa cùng một trang nhưng dùng nhãn cũ, hệ thống sẽ phát hiện và báo là có xung đột — tránh việc ghi đè lên công việc của người khác.
+
 Tài liệu nhỏ này giải thích cách cấu hình và xử lý trường RowVersion (SQL rowversion / timestamp) trong dự án LmsMini. Bao gồm: behaviour khi scaffold, cấu hình EF Core, mapping DTO, xử lý xung đột khi SaveChanges và ví dụ code ngắn.
 
 ---
