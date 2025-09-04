@@ -279,5 +279,47 @@ ASCII minh họa nhỏ:
 - Nếu có vấn đề, các em có thể quay lại bản sao lưu (bước 1) hoặc phục hồi database từ bản backup.
 - Luôn kiểm tra file migration trước khi áp vào database.
 
+## Bản đồ ghi nhớ: ASP.NET Identity
+
+Cô soạn giúp các em một tấm "bản đồ ghi nhớ" ngắn gọn để dễ ôn nhé.
+
+1. Mục đích
+- "Quản lý người dùng, vai trò, đăng nhập, phân quyền" — giống hệ thống an ninh tòa nhà: có danh sách cư dân (users), phân loại (roles), và thẻ ra vào (tokens).
+
+2. Thành phần chính
+- User (AspNetUsers): Lưu thông tin người dùng (tên, email, mật khẩu băm).
+- Role (AspNetRoles): Nhóm quyền (Admin, Instructor, Learner).
+- UserRole (AspNetUserRoles): Ai thuộc nhóm nào (mapping).
+- Claims (AspNetUserClaims, AspNetRoleClaims): Quyền đặc biệt hoặc thông tin thêm.
+- Login (AspNetUserLogins): Đăng nhập ngoài (Google, Facebook…).
+- Tokens (AspNetUserTokens): Token xác thực, refresh token.
+
+3. Các bước cài đặt cơ bản
+- Cài gói:
+  - Microsoft.AspNetCore.Identity.EntityFrameworkCore
+  - Microsoft.EntityFrameworkCore.Design
+  - (Nếu dùng JWT) Microsoft.AspNetCore.Authentication.JwtBearer
+- Cấu hình trong Program.cs:
+  - `AddIdentity<...>().AddEntityFrameworkStores<LmsDbContext>()`
+  - `AddAuthentication().AddJwtBearer(...)`
+- Bật middleware:
+  - `app.UseAuthentication()`
+  - `app.UseAuthorization()`
+- Tạo migration & update DB:
+  - `dotnet ef migrations add Init_Identity`
+  - `dotnet ef database update`
+- Seed dữ liệu: tạo roles và admin mặc định (RoleManager / UserManager).
+- Bảo mật khóa JWT: lưu trong User Secrets hoặc biến môi trường.
+
+4. Luồng hoạt động cơ bản
+- Người dùng → gửi yêu cầu (login/register) → Controller → Identity (UserManager/SignInManager) → EF Core → Database (AspNetUsers, AspNetRoles...) → trả JWT (nếu dùng JWT).
+
+5. Mẹo ghi nhớ
+- 3 chữ vàng: User – Role – Token
+- 2 lệnh sống còn: `UseAuthentication()` + `UseAuthorization()`
+- 1 nơi lưu trữ: LmsDbContext
+- 1 chìa khóa: `Jwt:Key` (giữ bí mật)
+
 ---
+
 Tập tin này lưu tại: `LmsMini.Api/docs/identity/Identity_For_Grade5.md`
