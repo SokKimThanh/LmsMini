@@ -1,4 +1,5 @@
 ﻿# Hướng dẫn nhanh: Thêm ASP.NET Identity (giải thích dành cho học sinh lớp 5)
+<img width="402" height="678" alt="image" src="https://github.com/user-attachments/assets/9016642d-d9e4-4a47-94b8-578e794335e3" />
 
 **Lưu ý ngắn (dành cho người làm kỹ thuật) — cô tóm tắt trước khi hướng dẫn các em:**
 
