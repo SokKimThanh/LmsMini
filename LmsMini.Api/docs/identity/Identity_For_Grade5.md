@@ -8,6 +8,27 @@
 - Sau khi thêm, cần bật middleware xác thực trong pipeline: `app.UseAuthentication()` và `app.UseAuthorization()` để cho phép kiểm tra ai được phép làm gì.
 - Cuối cùng, phải tạo migration và cập nhật database (tạo bảng `AspNetUsers`, `AspNetRoles`, v.v.) — giống như xây tủ đựng thông tin người dùng trước khi sử dụng.
 
+## Bảng mặc định khi bật Identity (ghi chú kỹ thuật)
+Khi gọi `AddIdentity<...>().AddEntityFrameworkStores<LmsDbContext>()` và tạo migration, ASP.NET Identity sẽ tạo một tập hợp bảng mặc định trong database. Hãy xem và kiểm tra các bảng này trong file migration trước khi áp:
+
+- `AspNetUsers` — lưu thông tin người dùng (username, email, password hash, v.v.).
+- `AspNetRoles` — lưu các vai trò (role) như Admin/Instructor/Learner.
+- `AspNetUserRoles` — ánh xạ nhiều-nhiều giữa người dùng và vai trò.
+- `AspNetUserClaims` — lưu các claim gán cho user (thông tin thêm như quyền đặc biệt).
+- `AspNetRoleClaims` — lưu các claim gán cho role.
+- `AspNetUserLogins` — lưu thông tin đăng nhập từ nhà cung cấp bên ngoài (Google, Facebook, ...).
+- `AspNetUserTokens` — lưu các token liên quan tới người dùng (ví dụ refresh token hoặc token xác thực hành động).
+
+Lưu ý ngắn:
+- Những bảng trên được sinh tự động bởi Identity khi migration được tạo; không phải do mình tự thêm tay.
+- Trước khi apply migration, mở file migration và kiểm tra cấu trúc, kiểu khóa chính (string vs GUID), tên bảng/schema để đảm bảo phù hợp với dự án.
+
+## Checklist tạo migration & lưu ý
+- Tạo migration: `dotnet ef migrations add Init_Identity -s LmsMini.Api -p LmsMini.Infrastructure`.
+- Mở file migration trong dự án Infrastructure và review các `CreateTable` cho `AspNet*`.
+- Kiểm tra kiểu dữ liệu ID: nếu dự án dùng `Guid` cho user Id, đảm bảo `AspNetUser` kế thừa `IdentityUser<Guid>` và DbContext mapping tương ứng.
+- Sau khi xác nhận, apply: `dotnet ef database update -s LmsMini.Api -p LmsMini.Infrastructure`.
+
 ---
 
 Xin chào các em! Hôm nay cô sẽ hướng dẫn các em từng bước rất đơn giản để thêm hệ thống quản lý người dùng vào chương trình. Cô nói chậm, rõ ràng để các em dễ hiểu nhé.
