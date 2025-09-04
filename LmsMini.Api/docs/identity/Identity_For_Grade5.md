@@ -49,10 +49,76 @@ Xin chào các em! Hôm nay cô sẽ hướng dẫn các em từng bước rất
 - "Tủ lưu" là LmsDbContext — nơi chương trình cất thông tin vào cơ sở dữ liệu.
 - Cần đảm bảo LmsDbContext biết cách làm việc với Identity (ví dụ: kế thừa hoặc cấu hình đúng).
 
-## 4. Chuẩn bị khóa bí mật
-- Khóa bí mật giống như chìa khóa nhà — giữ thật an toàn, không chia cho người khác.
-- Lưu khóa vào user-secrets hoặc appsettings.Development.json.
-- Ví dụ: `dotnet user-secrets init` và `dotnet user-secrets set "Jwt:Key" "<bí-mật>"`.
+## 4. Chuẩn bị khóa bí mật 🔑
+
+Cô sẽ nói nhỏ dễ nghe nhé — chúng ta giữ bí mật này thật an toàn!
+
+Khóa bí mật (JWT Key) giống như **chìa khóa nhà** – tuyệt đối không cho người khác mượn.  
+Khóa này dùng để ký và kiểm tra **JSON Web Token (JWT)** khi các em đăng nhập.
+
+### 📌 Lưu khóa bí mật
+
+Các em có hai cách để lưu khóa, cô khuyên dùng cách 1 (User Secrets) khi đang làm trên máy của mình.
+
+---
+
+### **Cách 1: Lưu bằng User Secrets** (Khuyến nghị cho môi trường phát triển)
+
+1. **Khởi tạo User Secrets** cho dự án (chạy trong thư mục chứa file `.csproj`):
+
+```sh
+dotnet user-secrets init
+```
+
+2. **Đặt khóa bí mật** (thay `<bí-mật>` bằng chuỗi bí mật của bạn):
+
+```sh
+dotnet user-secrets set "Jwt:Key" "<bí-mật>"
+```
+
+3. **Kiểm tra lại**:
+
+```sh
+dotnet user-secrets list
+```
+
+Kết quả sẽ hiển thị ví dụ:
+
+```
+Jwt:Key = <bí-mật>
+```
+
+---
+
+### **Cách 2: Lưu trong appsettings.Development.json** (Chỉ dùng khi không thể dùng User Secrets)
+
+Mở file `appsettings.Development.json` và thêm:
+
+```json
+{
+  "Jwt": {
+    "Key": "<bí-mật>"
+  }
+}
+```
+
+⚠️ Lưu ý: Không commit file này lên Git nếu chứa khóa thật.
+
+---
+
+### 📥 Sử dụng khóa trong mã nguồn
+Trong `Program.cs` hoặc nơi cấu hình JWT, lấy khóa bằng:
+
+```csharp
+var jwtKey = builder.Configuration["Jwt:Key"];
+```
+
+Khóa sẽ được lấy từ User Secrets hoặc `appsettings.Development.json` tùy môi trường.
+
+### 🔒 Lưu ý bảo mật
+- Không viết khóa trực tiếp trong mã nguồn (hardcode).
+- Không commit khóa bí mật lên GitHub.
+- Ở môi trường production, nên lưu khóa trong biến môi trường hoặc dịch vụ bảo mật như Azure Key Vault.
 
 ## 5. Thêm đăng ký Identity vào Program.cs
 - Trong file Program.cs, cô sẽ thêm lệnh để bật hệ thống quản lý người dùng:
