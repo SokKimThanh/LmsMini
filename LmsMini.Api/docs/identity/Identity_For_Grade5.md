@@ -1,59 +1,59 @@
-﻿# Hướng dẫn nhanh: Thêm ASP.NET Identity (giải thích cho học sinh lớp 5)
+﻿# Hướng dẫn nhanh: Thêm ASP.NET Identity (giải thích dành cho học sinh lớp 5)
 
-Tài liệu này giải thích từng bước rất đơn giản để thêm hệ thống quản lý người dùng (ASP.NET Identity) vào dự án.
+Xin chào các em! Hôm nay cô sẽ hướng dẫn các em từng bước rất đơn giản để thêm hệ thống quản lý người dùng vào chương trình. Cô nói chậm, rõ ràng để các em dễ hiểu nhé.
 
 ## 1. Sao lưu trước khi làm
-- Giống như chụp ảnh trước khi sửa: lưu lại mã hiện có.
-- Lệnh gợi ý: `git add .` rồi `git commit -m "backup trước khi thêm Identity"`.
+- Cô khuyên các em hãy lưu lại mã trước khi sửa, giống như chụp ảnh trước khi thay đổi.
+- Cách làm: chạy `git add .` rồi `git commit -m "backup trước khi thêm Identity"`.
 
 ## 2. Kiểm tra công cụ cần có
-- Cần các gói (packages) giống như chuẩn bị bút và vở:
+- Trước khi bắt đầu, cần kiểm tra xem đã có các gói phần mềm sau chưa:
   - Microsoft.AspNetCore.Identity.EntityFrameworkCore
   - Microsoft.EntityFrameworkCore.Design
-  - Nếu dùng token: Microsoft.AspNetCore.Authentication.JwtBearer
-- Nếu thiếu, dùng `dotnet add package <tên-package>` để cài.
+  - Nếu dùng mã token để đăng nhập: Microsoft.AspNetCore.Authentication.JwtBearer
+- Nếu thiếu, các em có thể cài bằng `dotnet add package <tên-package>`.
 
 ## 3. Kiểm tra "thẻ người dùng" và "tủ lưu"
-- "Thẻ người dùng" = lớp AspNetUser (lưu thông tin người dùng).
-- "Tủ lưu" = LmsDbContext (nơi lưu dữ liệu vào cơ sở dữ liệu).
-- Phải đảm bảo LmsDbContext hỗ trợ Identity (ví dụ kế thừa IdentityDbContext hoặc có cấu hình phù hợp).
+- "Thẻ người dùng" là lớp AspNetUser — nơi lưu tên và mật khẩu của bạn.
+- "Tủ lưu" là LmsDbContext — nơi chương trình cất thông tin vào cơ sở dữ liệu.
+- Cần đảm bảo LmsDbContext biết cách làm việc với Identity (ví dụ: kế thừa hoặc cấu hình đúng).
 
 ## 4. Chuẩn bị khóa bí mật
-- Giống như chìa khóa nhà: không chia cho người lạ.
-- Lưu bí mật (JWT key) trong user-secrets hoặc appsettings.Development.json.
-- Ví dụ tạo user-secrets: `dotnet user-secrets init` và `dotnet user-secrets set "Jwt:Key" "<bí-mật>"`.
+- Khóa bí mật giống như chìa khóa nhà — giữ thật an toàn, không chia cho người khác.
+- Lưu khóa vào user-secrets hoặc appsettings.Development.json.
+- Ví dụ: `dotnet user-secrets init` và `dotnet user-secrets set "Jwt:Key" "<bí-mật>"`.
 
 ## 5. Thêm đăng ký Identity vào Program.cs
-- Trong file Program.cs thêm:
+- Trong file Program.cs, cô sẽ thêm lệnh để bật hệ thống quản lý người dùng:
   - `services.AddIdentity<...>().AddEntityFrameworkStores<LmsDbContext>();`
-  - Nếu dùng JWT, thêm `services.AddAuthentication(...).AddJwtBearer(...);`
-- Trong pipeline cần gọi:
-  - `app.UseAuthentication();`
-  - `app.UseAuthorization();`
+  - Nếu dùng token JWT, thêm `services.AddAuthentication(...).AddJwtBearer(...);`
+- Khi chạy ứng dụng, nhớ gọi:
+  - `app.UseAuthentication();` trước
+  - `app.UseAuthorization();` sau
 
 ## 6. Tạo migration để tạo bảng trong database
-- Giống như xây tủ trước khi để đồ: tạo thay đổi cho database.
+- Tạo migration giống như bản vẽ để xây tủ lưu trong database.
 - Tạo migration: `dotnet ef migrations add Init_Identity -s LmsMini.Api -p LmsMini.Infrastructure`
 - Áp migration: `dotnet ef database update -s LmsMini.Api -p LmsMini.Infrastructure`
 
 ## 7. Tạo sẵn Roles và tài khoản admin
-- Tạo vai trò: Admin, Instructor, Learner.
-- Tạo 1 tài khoản admin để quản lý ban đầu.
-- Viết code seed (dùng RoleManager và UserManager) và chạy khi app khởi động; làm sao cho an toàn nếu chạy nhiều lần (idempotent).
+- Tạo các vai trò: Admin (người quản lý), Instructor (giáo viên), Learner (học sinh).
+- Tạo một tài khoản admin ban đầu để quản lý hệ thống.
+- Viết đoạn mã seed dùng RoleManager và UserManager và chạy khi ứng dụng khởi động; làm sao để chạy nhiều lần vẫn an toàn.
 
 ## 8. Kiểm tra bằng tay
 - Dùng Postman hoặc Swagger để thử:
   - Đăng ký (register)
   - Đăng nhập (login)
-  - Gọi endpoint cần bảo vệ (xem có bị chặn nếu chưa đăng nhập không)
+  - Gọi endpoint đã bảo vệ để xem hệ thống có chặn khi chưa đăng nhập hay không
 
 ## 9. Giữ an toàn
-- Không đưa bí mật (keys) lên Git.
-- Ẩn hoặc giới hạn Swagger trên môi trường production.
+- Không đưa khóa bí mật lên Git.
+- Ở môi trường thật (production), ẩn hoặc giới hạn Swagger để không lộ thông tin.
 
 ## 10. Nếu có lỗi
-- Quay lại bản sao lưu (bước 1) hoặc khôi phục database từ bản backup.
-- Kiểm tra file migration trước khi apply.
+- Nếu có vấn đề, các em có thể quay lại bản sao lưu (bước 1) hoặc phục hồi database từ bản backup.
+- Luôn kiểm tra file migration trước khi áp vào database.
 
 ---
 Tập tin này lưu tại: `LmsMini.Api/docs/identity/Identity_For_Grade5.md`
