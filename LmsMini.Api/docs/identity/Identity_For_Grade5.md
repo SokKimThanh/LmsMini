@@ -323,3 +323,74 @@ Cô soạn giúp các em một tấm "bản đồ ghi nhớ" ngắn gọn để 
 ---
 
 Tập tin này lưu tại: `LmsMini.Api/docs/identity/Identity_For_Grade5.md`
+
+## Thao tác thực hành trong dự án (dành cho các em, bước‑bước dễ theo)
+
+Cô soạn các bước ngắn gọn để các em có thể thao tác trực tiếp trên dự án theo cấu trúc Clean Architecture. Thực hiện từ thư mục gốc của repo (nơi có file .sln).
+
+1) Chuẩn bị & kiểm tra
+- Mở terminal (PowerShell / Bash) ở thư mục gốc của dự án (ví dụ: E:\Blazor\LmsMini).
+- Chạy:
+  - `dotnet restore` (khôi phục packages)
+  - `dotnet build` (kiểm tra build)
+- Nếu thiếu công cụ EF CLI, cài:
+  - `dotnet tool install --global dotnet-ef`
+
+2) Cài packages cần thiết (nếu chưa có)
+- Mở terminal ở `LmsMini.Api` và chạy:
+```bash
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+dotnet add package Microsoft.EntityFrameworkCore.Design
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+```
+- Sau đó chạy `dotnet build` lại.
+
+3) Mở file quan trọng để kiểm tra/ chỉnh
+- Program.cs: `LmsMini.Api/Program.cs` — chỗ đăng ký services và middleware. (Ở đây sẽ thêm AddIdentity, AddAuthentication, UseAuthentication, UseAuthorization.)
+- AspNetUser entity: `LmsMini.Domain/Entities/Identity/AspNetUser.cs` — kiểm tra kiểu Id (string hay Guid).
+- LmsDbContext: `LmsMini.Infrastructure/Persistence/LmsDbContext.cs` — kiểm tra có kế thừa hoặc hỗ trợ Identity (nếu chưa, sẽ cần điều chỉnh).
+
+4) Thêm Identity config (nếu chưa có)
+- Nếu Program.cs chưa có, chèn đoạn đăng ký Identity và JWT theo mẫu trong phần "Ví dụ cấu hình Program.cs" trong tài liệu này.
+
+5) Tạo migration và áp vào database
+- Tạo migration (chạy từ thư mục gốc hoặc tương đối):
+```bash
+dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api
+```
+- Mở file migration trong `LmsMini.Infrastructure/Migrations` và review các bảng `AspNet*`.
+- Áp migration:
+```bash
+dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
+```
+- Kiểm tra DB (SSMS hoặc Azure Data Studio) để thấy các bảng `AspNetUsers`, `AspNetRoles`, ...
+
+6) Seed roles & admin
+- Nếu đã thêm hàm `SeedDataAsync` như ví dụ, gọi nó khi ứng dụng khởi động (đã có chỉ dẫn trong file này). Hoặc chạy thủ công bằng cách tạo một console scope gọi `SeedDataAsync`.
+- Chạy app:
+```bash
+dotnet run --project LmsMini.Api
+```
+- Kiểm tra trong DB xem role và admin đã tồn tại.
+
+7) Kiểm tra API / Auth flow
+- Mở Swagger (thường `https://localhost:5001/swagger`) hoặc dùng Postman.
+- Nếu chưa có endpoint register/login, bạn có thể kiểm tra bằng cách truy vấn DB hoặc viết nhanh một controller test để tạo user bằng `UserManager`.
+
+8) Chạy tests
+- Chạy unit/integration tests (nếu có):
+```bash
+dotnet test
+```
+
+9) Một số lỗi thường gặp & cách xử lý
+- Lỗi thiếu package trong migration: chắc chắn `Microsoft.EntityFrameworkCore.Design` đã cài trong project Infrastructure.
+- Lỗi kết nối DB: kiểm tra connection string trong `appsettings.Development.json` hoặc biến môi trường; thử kết nối bằng SSMS.
+- Lỗi kiểu Id mismatch: nếu AspNetUser dùng `Guid` nhưng Identity config mặc định string, điều chỉnh inheritance hoặc types cho khớp.
+
+10) Gợi ý luyện tập (cho mỗi em)
+- Bài 1: Thêm Identity, tạo migration, apply và chụp màn hình bảng `AspNetUsers` trong DB.
+- Bài 2: Viết một controller test nhỏ `/api/test/create-admin` dùng `UserManager` để tạo user (chỉ dùng khi đang học, xóa sau khi hoàn thành).
+- Bài 3: Viết test unit cho một handler đơn giản trong Application (mock repository).
+
+Chúc các em thực hành vui và nếu bị lỗi thì chụp ảnh màn hình, gửi cho cô để cô hướng dẫn tiếp nhé.
