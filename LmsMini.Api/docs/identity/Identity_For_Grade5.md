@@ -37,12 +37,23 @@ Xin chào các em! Hôm nay cô sẽ hướng dẫn các em từng bước rất
 - Cô khuyên các em hãy lưu lại mã trước khi sửa, giống như chụp ảnh trước khi thay đổi.
 - Cách làm: chạy `git add .` rồi `git commit -m "backup trước khi thêm Identity"`.
 
-## 2. Kiểm tra công cụ cần có
-- Trước khi bắt đầu, cần kiểm tra xem đã có các gói phần mềm sau chưa:
-  - Microsoft.AspNetCore.Identity.EntityFrameworkCore
-  - Microsoft.EntityFrameworkCore.Design
-  - Nếu dùng mã token để đăng nhập: Microsoft.AspNetCore.Authentication.JwtBearer
-- Nếu thiếu, các em có thể cài bằng `dotnet add package <tên-package>`.
+## 2. Kiểm tra & cài gói cần thiết
+- Trước khi bắt đầu, các em nên cài những gói sau để dự án có thể sử dụng ASP.NET Identity và EF Core migration.
+
+Chạy những lệnh này trong thư mục chứa file `.csproj` của dự án API (ví dụ `LmsMini.Api`):
+
+```bash
+# Cài gói ASP.NET Identity với EF Core
+dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+
+# Cài gói hỗ trợ thiết kế EF Core (dùng cho migration)
+dotnet add package Microsoft.EntityFrameworkCore.Design
+
+# Nếu dùng JWT để đăng nhập, cài thêm gói xác thực JWT Bearer
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+```
+
+- Sau khi cài xong, chạy `dotnet restore` nếu cần và build dự án (`dotnet build`) để chắc các package đã được thêm thành công.
 
 ## 3. Kiểm tra "thẻ người dùng" và "tủ lưu"
 - "Thẻ người dùng" là lớp AspNetUser — nơi lưu tên và mật khẩu của bạn.
