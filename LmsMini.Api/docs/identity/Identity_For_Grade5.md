@@ -279,46 +279,60 @@ ASCII minh họa nhỏ:
 - Nếu có vấn đề, các em có thể quay lại bản sao lưu (bước 1) hoặc phục hồi database từ bản backup.
 - Luôn kiểm tra file migration trước khi áp vào database.
 
-## Bản đồ ghi nhớ: ASP.NET Identity
+## Xử lý khi bảng AspNetUsers đã tồn tại (gợi ý cho các em)
 
-Cô soạn giúp các em một tấm "bản đồ ghi nhớ" ngắn gọn để dễ ôn nhé.
+Nếu trong database của các em đã có sẵn bảng `AspNetUsers`, đừng lo — các em vẫn có thể dùng ASP.NET Identity. Cô tóm tắt mấy cách an toàn để làm việc với tình huống này:
 
-1. Mục đích
-- "Quản lý người dùng, vai trò, đăng nhập, phân quyền" — giống hệ thống an ninh tòa nhà: có danh sách cư dân (users), phân loại (roles), và thẻ ra vào (tokens).
+1) Sao lưu trước hết
+- Luôn backup database và code trước khi chạy migration. Nếu không chắc, chụp ảnh màn hình hoặc export schema.
 
-2. Thành phần chính
-- User (AspNetUsers): Lưu thông tin người dùng (tên, email, mật khẩu băm).
-- Role (AspNetRoles): Nhóm quyền (Admin, Instructor, Learner).
-- UserRole (AspNetUserRoles): Ai thuộc nhóm nào (mapping).
-- Claims (AspNetUserClaims, AspNetRoleClaims): Quyền đặc biệt hoặc thông tin thêm.
-- Login (AspNetUserLogins): Đăng nhập ngoài (Google, Facebook…).
-- Tokens (AspNetUserTokens): Token xác thực, refresh token.
+2) Cách A — Đánh dấu "baseline" (an toàn, thường dùng)
+- Tạo một migration trống để EF xem trạng thái hiện tại là "đã apply" mà không cố gắng tạo lại bảng:
 
-3. Các bước cài đặt cơ bản
-- Cài gói:
-  - Microsoft.AspNetCore.Identity.EntityFrameworkCore
-  - Microsoft.EntityFrameworkCore.Design
-  - (Nếu dùng JWT) Microsoft.AspNetCore.Authentication.JwtBearer
-- Cấu hình trong Program.cs:
-  - `AddIdentity<...>().AddEntityFrameworkStores<LmsDbContext>()`
-  - `AddAuthentication().AddJwtBearer(...)`
-- Bật middleware:
-  - `app.UseAuthentication()`
-  - `app.UseAuthorization()`
-- Tạo migration & update DB:
-  - `dotnet ef migrations add Init_Identity`
-  - `dotnet ef database update`
-- Seed dữ liệu: tạo roles và admin mặc định (RoleManager / UserManager).
-- Bảo mật khóa JWT: lưu trong User Secrets hoặc biến môi trường.
+```bash
+dotnet ef migrations add Init_Identity_Baseline -p LmsMini.Infrastructure -s LmsMini.Api --ignore-changes
+```
 
-4. Luồng hoạt động cơ bản
-- Người dùng → gửi yêu cầu (login/register) → Controller → Identity (UserManager/SignInManager) → EF Core → Database (AspNetUsers, AspNetRoles...) → trả JWT (nếu dùng JWT).
+- Lệnh trên tạo migration nhưng không sinh `CreateTable` cho các bảng đã tồn tại; khi apply migration, EF sẽ chỉ ghi bản ghi vào `__EFMigrationsHistory`.
 
-5. Mẹo ghi nhớ
-- 3 chữ vàng: User – Role – Token
-- 2 lệnh sống còn: `UseAuthentication()` + `UseAuthorization()`
-- 1 nơi lưu trữ: LmsDbContext
-- 1 chìa khóa: `Jwt:Key` (giữ bí mật)
+3) Cách B — Tạo migration bình thường rồi chỉnh tay (kỹ hơn)
+- Tạo migration như bình thường:
+
+```bash
+dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api
+```
+
+- Mở file migration vừa tạo trong `LmsMini.Infrastructure/Migrations` và nếu thấy đoạn `CreateTable("AspNetUsers")` (hoặc các bảng AspNet*), xóa hoặc comment phần đó để tránh EF cố tạo bảng trùng.
+- Sau đó apply migration:
+
+```bash
+dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
+```
+
+4) Cách C — Map schema hiện có vào model Identity (nếu tên/cột khác)
+- Nếu bảng đã có nhưng cột/kiểu khác so với Identity mặc định, các em có thể map các cột trong `OnModelCreating`:
+
+```csharp
+modelBuilder.Entity<AspNetUser>(b =>
+{
+    b.ToTable("AspNetUsers");
+    b.Property(u => u.Id).HasColumnName("Id");
+    b.Property(u => u.UserName).HasColumnName("UserName");
+    // map thêm các cột khác nếu tên khác
+});
+```
+
+- Hoặc điều chỉnh tên cột bằng `.HasColumnName(...)` và kiểu bằng `.HasColumnType(...)` để khớp với schema hiện có.
+
+5) Cách D — Tùy biến store (nâng cao)
+- Nếu schema quá khác biệt và không muốn thay DB, có thể triển khai `IUserStore<TUser>`/`IUserPasswordStore<TUser>` riêng để dùng UserManager với schema tùy chỉnh. Đây là phương án phức tạp và chỉ làm khi cần.
+
+6) Lưu ý quan trọng
+- Kiểm tra kiểu Id: nếu DB dùng `UNIQUEIDENTIFIER` (Guid), hãy dùng `IdentityUser<Guid>`; nếu DB dùng chuỗi, dùng `IdentityUser` (string). Kiểu phải khớp ở AspNetUser, IdentityDbContext và nơi đăng ký Identity.
+- Luôn mở file migration và đọc kỹ nội dung trước khi apply để tránh mất mát dữ liệu.
+- Nếu không tự tin, hãy tạo migration trên môi trường dev/test, apply ở test DB, kiểm tra kỹ rồi mới làm ở production.
+
+Nếu em muốn, cô có thể: A) tạo migration baseline cho repo (sẽ tạo file migration để em review), B) hướng dẫn chi tiết cách map cột cụ thể nếu em gửi schema khác so với Identity mặc định. Chọn A/B.
 
 ---
 
