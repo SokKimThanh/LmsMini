@@ -131,23 +131,138 @@ Khóa sẽ được lấy từ User Secrets hoặc `appsettings.Development.json
 - Không commit khóa bí mật lên GitHub.
 - Ở môi trường production, nên lưu khóa trong biến môi trường hoặc dịch vụ bảo mật như Azure Key Vault.
 
-## 5. Thêm đăng ký Identity vào Program.cs
-- Trong file Program.cs, cô sẽ thêm lệnh để bật hệ thống quản lý người dùng:
-  - `services.AddIdentity<...>().AddEntityFrameworkStores<LmsDbContext>();`
-  - Nếu dùng token JWT, thêm `services.AddAuthentication(...).AddJwtBearer(...);`
-- Khi chạy ứng dụng, nhớ gọi:
-  - `app.UseAuthentication();` trước
-  - `app.UseAuthorization();` sau
+## 5. Ví dụ cấu hình Program.cs (mẫu)
 
-## 6. Tạo migration để tạo bảng trong database
-- Tạo migration giống như bản vẽ để xây tủ lưu trong database.
-- Tạo migration: `dotnet ef migrations add Init_Identity -s LmsMini.Api -p LmsMini.Infrastructure`
-- Áp migration: `dotnet ef database update -s LmsMini.Api -p LmsMini.Infrastructure`
+Dưới đây là ví dụ ngắn gọn minh họa nơi nên đăng ký Identity, liên kết với LmsDbContext, và cấu hình JWT Bearer. Hãy điều chỉnh theo kiểu Id của dự án (string hoặc Guid) và namespace thực tế.
 
-## 7. Tạo sẵn Roles và tài khoản admin
-- Tạo các vai trò: Admin (người quản lý), Instructor (giáo viên), Learner (học sinh).
-- Tạo một tài khoản admin ban đầu để quản lý hệ thống.
-- Viết đoạn mã seed dùng RoleManager và UserManager và chạy khi ứng dụng khởi động; làm sao để chạy nhiều lần vẫn an toàn.
+```csharp
+// using directives (thêm nếu cần)
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Lấy key từ cấu hình
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Missing Jwt:Key");
+
+// DbContext registration (ví dụ)
+builder.Services.AddDbContext<LmsDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Identity registration
+// Giả sử AspNetUser : IdentityUser<Guid> và dùng Guid cho role
+builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options =>
+{
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+})
+.AddEntityFrameworkStores<LmsDbContext>()
+.AddDefaultTokenProviders();
+
+// Authentication - JWT
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
+
+var app = builder.Build();
+
+// Middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
+// ... Map controllers, etc.
+```
+
+> Ghi chú: Nếu dự án sử dụng `string` cho Id (mặc định của Identity), thay `IdentityRole<Guid>` bằng `IdentityRole` và `IdentityUser<Guid>` bằng `IdentityUser` hoặc loại user tương ứng.
+
+## 6. Ví dụ seed Roles & Admin (mẫu)
+
+Đoạn code sau là ví dụ đơn giản để tạo roles và một tài khoản admin nếu chưa tồn tại. Gọi hàm `SeedDataAsync` khi ứng dụng khởi động (ví dụ trong `Program.cs` sau khi `app` được build).
+
+```csharp
+public static async Task SeedDataAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AspNetUser>>();
+
+    string[] roles = new[] { "Admin", "Instructor", "Learner" };
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        }
+    }
+
+    // Tạo admin nếu chưa có
+    var adminEmail = "admin@example.com";
+    var admin = await userManager.FindByEmailAsync(adminEmail);
+    if (admin == null)
+    {
+        admin = new AspNetUser
+        {
+            UserName = "admin",
+            Email = adminEmail,
+            EmailConfirmed = true
+        };
+        var result = await userManager.CreateAsync(admin, "Admin@123");
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(admin, "Admin");
+        }
+    }
+}
+```
+
+Gọi khi ứng dụng khởi động:
+
+```csharp
+using (var scope = app.Services.CreateScope())
+{
+    await SeedDataAsync(scope.ServiceProvider);
+}
+```
+
+> Lưu ý: Đổi mật khẩu mặc định và email trong ví dụ khi đưa vào môi trường thật; dùng secrets để lưu các giá trị nhạy cảm.
+
+## 7. Sơ đồ đơn giản (minh họa)
+
+Client → API (Controllers) → Identity / EF Core → Database (bảng AspNetUsers, AspNetRoles, ...)
+
+ASCII minh họa nhỏ:
+
+```
+[Client]
+   |
+   | HTTP (login/register)
+   v
+[LmsMini API]
+   |-- Identity services
+   |-- JwtService
+   v
+[Database]
+   |-- AspNetUsers
+   |-- AspNetRoles
+   |-- AspNetUserRoles
+   |-- AspNetUserClaims
+   ...
+```
 
 ## 8. Kiểm tra bằng tay
 - Dùng Postman hoặc Swagger để thử:
