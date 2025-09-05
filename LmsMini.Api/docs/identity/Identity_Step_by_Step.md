@@ -124,12 +124,17 @@ dotnet ef database update
         return BadRequest(result.Errors);
     }
 ## Đăng nhập
+```csharp
 public async Task<IActionResult> Login(LoginRequest request)
 {
     var result = await _signInManager.PasswordSignInAsync(
-        request.Email, request.Password, false, false);``````if (result.Succeeded)
-        return Ok("Đăng nhập thành công");``````return Unauthorized("Sai thông tin đăng nhập");
-}```### 3 Tạo Role và gán cho User```csharp
+        request.Email, request.Password, false, false);
+        if (result.Succeeded)
+            return Ok("Đăng nhập thành công");
+        return Unauthorized("Sai thông tin đăng nhập");
+}
+```
+### 3 Tạo Role và gán cho User```csharp
     public async Task<IActionResult> CreateRole(string roleName)
     {
         if (!await _roleManager.RoleExistsAsync(roleName))
@@ -147,12 +152,16 @@ public async Task<IActionResult> Login(LoginRequest request)
         return Ok();
     }
 ## Phân quyền trong Controller
--------------------------------```csharp```[Authorize(Roles = "Admin")]
+-------------------------------
+```csharp
+[Authorize(Roles = "Admin")]
 [HttpGet("secret")]
 public IActionResult SecretArea()
 {
     return Ok("Chỉ Admin mới thấy được");
-}```## Test nhanh
+}
+```
+## Test nhanh
 ## Swagger / Postman
 
 *   Gọi`POST /api/account/register`→ tạo user
@@ -226,7 +235,7 @@ User
   v
 User
 ## Luồng Đăng nhập (Login)
-
+```plantext
 User
 |
 | 1. Gửi yêu cầu đăng nhập (email, password)
@@ -260,7 +269,7 @@ User
 | 8. Gửi phản hồi HTTP về cho client
   v
 User
-
+```
 💡 **Ghi chú**:
 
 *   Trong Clean Architecture:
@@ -273,7 +282,8 @@ User
 
 *   **Entity ApplicationUser** nằm ở **Domain Layer**
 
-*   Bạn có thể dùng PlantUML để vẽ sơ đồ này đẹp hơn:``````plantuml```plantuml
+*   Bạn có thể dùng PlantUML để vẽ sơ đồ này đẹp hơn:
+```plantuml
 @startuml
 actor User
 User -> Controller : POST /register
@@ -285,30 +295,22 @@ Infrastructure -> Infrastructure : SignInManager.SignInAsync(user)
 Infrastructure --> Application : Success
 Application --> Controller : "Đăng ký thành công"
 Controller --> User : HTTP 200 OK
-@enduml```Mã
-
----
-
-Nếu bạn muốn, mình có thể **vẽ thêm sơ đồ sequence cho chức năng phân quyền (Authorize)** để thấy rõ cách ASP.NET Identity kiểm tra Role/Claim trước khi cho phép truy cập.
-Bạn có muốn mình thêm phần đó vào luôn không, Thanh?
-
-vẽ thêm sơ đồ sequence cho chức năng phân quyền (Authorize)
-
-Ok Thanh, mình sẽ bổ sung vào tài liệu`.md`của bạn **sơ đồ sequence cho chức năng phân quyền (Authorize)** để bạn thấy rõ cách ASP.NET Identity kiểm tra quyền truy cập dựa trên Role/Claim trước khi cho phép vào một action hoặc endpoint.
-
-markdown
+@enduml
+```
 ## Sơ đồ Sequence - Chức năng Phân quyền (Authorize)
 ## Luồng kiểm tra quyền truy cập với
-[Controller Action có [Authorize(Roles="Admin")]]```2. Middleware Authentication (ASP.NET Core)```v
-[Authentication Handler]```3. Đọc cookie/token từ request
-4. Xác thực danh tính (UserManager / SignInManager)```v
-[Infrastructure: Identity + ApplicationDbContext]```5. Lấy thông tin user + roles từ DB (AspNetUsers, AspNetUserRoles, AspNetRoles)```v
-[Database]```6. Trả thông tin user và roles```^
-[Infrastructure]```7. Middleware Authorization kiểm tra role "Admin"
+```[Controller Action có [Authorize(Roles="Admin")]]```
+2. Middleware Authentication (ASP.NET Core)```[Authentication Handler]```
+3. Đọc cookie/token từ request
+4. Xác thực danh tính (UserManager / SignInManager)```[Infrastructure: Identity + ApplicationDbContext]```
+5. Lấy thông tin user + roles từ DB (AspNetUsers, AspNetUserRoles, AspNetRoles)```[Database]```
+6. Trả thông tin user và roles```[Infrastructure]```
+7. Middleware Authorization kiểm tra role "Admin"
 - Nếu có: cho phép vào action
-- Nếu không: trả 403 Forbidden```v
-[Controller Action]```8. Xử lý logic và trả kết quả```v
-User```### 2 Phiên bản PlantUML```plantuml
+- Nếu không: trả 403 Forbidden```[Controller Action]```
+8. Xử lý logic và trả kết quả```User```
+### 2 Phiên bản PlantUML
+```plantuml
 
 @startuml
 actor User
@@ -328,7 +330,7 @@ else No Role
     AuthzMiddleware -> User : HTTP 403 Forbidden
 end
 @enduml
-
+```
 💡 **Ghi chú**:
 
 *   **Authentication**: Xác định bạn là ai (dựa trên cookie/token).
