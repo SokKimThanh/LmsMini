@@ -1,394 +1,363 @@
-# ASP.NET Identity — Hướng dẫn triển khai (Clean Architecture, phù hợp Sprint 2)
+# ASP.NET Identity — Hướng dẫn thực hành (Clean Architecture, Database‑first)
 
-## Mục lục
-
-- [Giới thiệu](#giới-thiệu)
-- [Yêu cầu trước khi bắt đầu](#yêu-cầu-trước-khi-bắt-đầu)
-- [Tổng quan (nhiệm vụ chính)](#tổng-quan-nhiệm-vụ-chính)
-- [Mapping: Identity ↔ Clean Architecture](#mapping-identity-↔-clean-architecture)
-- [1. Đăng ký Identity trong Program.cs](#1-đăng-ký-identity-trong-programcs)
-- [2. ApplicationUser / mapping (Domain)](#2-applicationuser--mapping-domain)
-- [3. Cập nhật DbContext (Infrastructure)](#3-cập-nhật-dbcontext-infrastructure)
-- [4. Migrations & Database](#4-migrations--database)
-- [5. Seed roles và admin user (idempotent)](#5-seed-roles-và-admin-user-idempotent)
-- [6. Register / Login (ví dụ)](#6-register--login-ví-dụ)
-- [7. Test nhanh](#7-test-nhanh)
-- [8. Lỗi thường gặp & cách xử lý](#8-lỗi-thường-gặp--cách-xử-lý)
-- [Next steps & tham chiếu](#next-steps--tham-chiếu)
-- [Appendices / Sequence diagrams](#appendices--sequence-diagrams)
+Phiên bản: 1.1 — Tài liệu hướng dẫn thực hành & chia sẻ cho đồng nghiệp. Mục tiêu: bạn có thể vừa đọc vừa thực hành theo (hands‑on), đồng thời lưu trữ và chia sẻ kiến thức trong team.
 
 ---
 
-## Giới thiệu
+## Mục lục (quick links)
 
-Tài liệu này tóm tắt các bước cần thiết để tích hợp ASP.NET Core Identity vào codebase LmsMini (Clean Architecture). Nội dung phù hợp với mục tiêu Sprint 2: đăng ký Identity trong Program.cs, tạo migration, seed roles, và tạo skeleton Register/Login để kiểm thử.
+- [Tổng quan & quyết định kiến trúc](#tổng-quan--quyết-định-kiến-trúc)
+- [Chuẩn bị (prerequisites)](#chuẩn-bị-prerequisites)
+- [Checklist nhanh (what you'll do)](#checklist-nhanh-what-youll-do)
+- [Thực hành — Bước 1 → Bước 6 (hands‑on)](#thực-hành)
+  - [Bước 1 — Kiểm tra DB & scaffolded entity](#bước-1---kiểm-tra-db--scaffolded-entity)
+  - [Bước 2 — Tạo/đặt file mẫu (nếu chưa có)](#bước-2---tạotạođặt-file-mẫu-nếu-chưa-có)
+  - [Bước 3 — Đăng ký Identity trong Program.cs (mapping)](#bước-3---đăng-ký-identity-trong-programcs-mapping)
+  - [Bước 4 — Seed roles an toàn (RoleManager)](#bước-4---seed-roles-an-toàn-rolemanager)
+  - [Bước 5 — Kiểm thử Register / Login (Swagger/Postman)](#bước-5---kiểm-thử-register--login-swaggerpostman)
+  - [Bước 6 — Công việc CI / release note (migration review)](#bước-6---công-việc-ci--release-note-migration-review)
+- [File & thư mục (vị trí chính xác)](#file--thư-mục-vị-trí-chính-xác)
+- [Lưu ý vận hành & chia sẻ tài liệu](#lưu-ý-vận-hành--chia-sẻ-tài-liệu)
+- [Appendices: Commands & snippets](#appendices-commands--snippets)
 
-## Yêu cầu trước khi bắt đầu
+---
 
-- .NET 9 SDK.
-- Project structure: LmsMini.Api, LmsMini.Application, LmsMini.Domain, LmsMini.Infrastructure.
-- Chuỗi kết nối (DefaultConnection) đã cấu hình trong appsettings hoặc user-secrets.
-- Lưu ý: repo hiện có entity scaffolded `AspNetUser` tại `LmsMini.Domain/Entities/Identity/AspNetUser.cs` (sử dụng Guid PK). Nếu đang dùng database-first (scaffold), cân nhắc mapping thay vì tạo migration trùng lặp.
+## Tổng quan & quyết định kiến trúc
 
-## Tổng quan (nhiệm vụ chính)
+Dự án chọn chiến lược: **database‑first** cho phần Identity. Tức là các bảng AspNet* có thể đã tồn tại (hoặc quản lý bởi DBA). Hướng này yêu cầu "mapping" code tới schema hiện hữu, không tạo migration cho các bảng Identity.
 
-1. Đăng ký Identity trong Program.cs.
-2. Quyết định model user: map tới scaffolded AspNetUser hoặc tạo ApplicationUser : IdentityUser<Guid> và map bảng.
-3. Cập nhật DbContext để kế thừa IdentityDbContext.
-4. Tạo migration (nếu áp dụng) và apply.
-5. Seed roles (Admin/Instructor/Learner) idempotent.
-6. Tạo minimal Register/Login endpoints để kiểm tra.
+Những nguyên tắc quan trọng:
+- Không tạo migration làm thay đổi bảng AspNet* khi theo database‑first.
+- Dùng RoleManager để seed roles; nếu bảng roles chưa tồn tại, phối hợp với DBA bằng SQL script idempotent.
+- Đăng ký Identity services trong Program.cs để nhận UserManager/SignInManager, nhưng kiểm soát strict việc tạo migration.
 
-## Mapping: Identity ↔ Clean Architecture
+---
 
-Để rõ ràng cho team, dưới đây là bảng mapping giữa các thành phần Identity và vị trí/điểm đăng ký trong kiến trúc Clean Architecture của repo.
+## Chuẩn bị (prerequisites)
 
-| Thành phần Identity | Thuộc layer | Vị trí / Ghi chú (file/đăng ký) |
-|---|---|---|
-| ApplicationUser / AspNetUser | Domain | LmsMini.Domain/Entities — nếu scaffolded dùng `AspNetUser` (Guid Id); nếu code-first tạo `ApplicationUser : IdentityUser<Guid>` và map tên bảng nếu cần. |
-| LmsDbContext (IdentityDbContext) | Infrastructure | LmsMini.Infrastructure/Persistence (LmsDbContext). Đăng ký DbContext trong Program.cs với AddDbContext<LmsDbContext>(). |
-| UserManager<TUser>, SignInManager<TUser>, RoleManager<TRole> | Infrastructure (DI) | Được đăng ký khi gọi AddDefaultIdentity/AddIdentity trong Program.cs. Không cần AddScoped thủ công. |
-| AccountController (endpoints) | Presentation | LmsMini.Api/Controllers — sử dụng UserManager/SignInManager; controller nằm ở presentation layer và gọi Application layer hoặc handlers. |
-| JwtService (token service) | Infrastructure/Services | Nếu dùng JWT, implement trong LmsMini.Infrastructure/Services và đăng ký trong Program.cs (AddSingleton/AddScoped). |
-| RoleSeeder / Seed runner | Infrastructure (khởi động) | Snippet gọi trong Program.cs (CreateScope). Đảm bảo idempotent. |
-| EF Migrations | Infrastructure project | Migrations tạo trong LmsMini.Infrastructure; chạy với dotnet ef -p LmsMini.Infrastructure -s LmsMini.Api. |
+- .NET 9 SDK cài sẵn.
+- Kết nối DB trong appsettings (DefaultConnection).
+- Kiểm tra: có file scaffolded AspNetUser: `LmsMini.Domain/Entities/Identity/AspNetUser.cs`.
+- Các project đã reference nhau: LmsMini.Api → LmsMini.Infrastructure, LmsMini.Domain.
 
-Ghi chú ngắn:
-- Nếu dự án dùng database-first (scaffold), tránh tạo migration trùng; thay vào đó map các lớp Domain tới bảng đã có.
-- Đăng ký Identity và Authentication (JWT) luôn nằm trong Program.cs của project Presentation (LmsMini.Api) để khởi tạo middleware và DI.
+---
 
-## 1. Đăng ký Identity trong Program.cs
+## Checklist nhanh (what you'll do)
 
-Thêm dịch vụ Identity và EntityFramework stores. Ví dụ:
+1. Xác nhận bảng AspNetUsers tồn tại trên DB.
+2. Tạo hoặc kiểm tra các file mẫu (ApplicationUser wrapper, AccountController, DTOs, RoleSeeder).
+3. Đăng ký Identity trong Program.cs (mapping đến LmsDbContext hiện hữu).
+4. Chạy RoleSeeder (idempotent) hoặc cung cấp SQL seed cho DBA.
+5. Kiểm thử Register/Login qua Swagger hoặc Postman.
+6. Ghi lại quyết định trong SDD và lưu SQL scripts vào docs/identity/sql/.
+
+---
+
+## Thực hành
+
+Các bước dưới đây là kịch bản bạn có thể thực hiện trực tiếp trong workspace.
+
+### Bước 1 — Kiểm tra DB & scaffolded entity
+
+- Mở file: `LmsMini.Domain/Entities/Identity/AspNetUser.cs` để xác định schema PK (có GUID hay không).
+- Trên DB (local), kiểm tra:
+  SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE 'AspNet%';
+- Nếu bảng AspNetUsers tồn tại — tiếp tục. Nếu không, liên hệ DBA hoặc chuẩn bị SQL tạo bảng.
+
+### Bước 2 — Tạo/đặt file mẫu (nếu chưa có)
+
+Các file mẫu (đã đưa ví dụ trong tài liệu) nên ở các đường dẫn:
+
+- LmsMini.Domain/Entities/Identity/ApplicationUser.cs — wrapper IdentityUser<Guid> (không thay đổi DB).
+- LmsMini.Api/Controllers/AccountController.cs — endpoints register/login minimal.
+- LmsMini.Api/DTOs/RegisterRequest.cs, LoginRequest.cs — payload DTO.
+- LmsMini.Infrastructure/Services/RoleSeeder.cs — seeder idempotent.
+
+(Nếu bạn chưa có các file này, copy từ phần `Appendices` vào file tương ứng.)
+
+### Bước 3 — Đăng ký Identity trong Program.cs (mapping)
+
+Mở `LmsMini.Api/Program.cs` và thêm dòng đăng ký Identity (ví dụ):
 
 ```csharp
 // using Microsoft.AspNetCore.Identity;
-// using LmsMini.Domain.Entities.Identity; // ApplicationUser hoặc mapping class
+// using LmsMini.Domain.Entities.Identity; // ApplicationUser (wrapper)
 // using LmsMini.Infrastructure.Persistence; // LmsDbContext
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
-    // cấu hình Password/Lockout nếu cần
 })
 .AddRoles<IdentityRole<Guid>>()
 .AddEntityFrameworkStores<LmsDbContext>();
-
-// NOTE: UserManager/SignInManager/RoleManager được đăng ký bởi Identity; không cần AddScoped thủ công.
 ```
 
-Nếu dùng JWT, cấu hình Authentication/JwtBearer tiếp sau bước này (signing key từ user-secrets).
+Lưu ý: đăng ký này chỉ để nhận DI cho UserManager/SignInManager; KHÔNG chạy `dotnet ef migrations add` để tạo AspNet* vì theo database‑first ta không muốn sinh bảng này.
 
-## 2. ApplicationUser / mapping (Domain)
+### Bước 4 — Seed roles an toàn (RoleManager)
 
-Hai lựa chọn:
-
-- Nếu muốn dùng Identity types: tạo ApplicationUser kế thừa IdentityUser<Guid>.
-
-```csharp
-public class ApplicationUser : IdentityUser<Guid>
-{
-    public string? FullName { get; set; }
-}
-```
-
-- Nếu đã scaffold bảng AspNetUsers (database-first) và có lớp `AspNetUser` trong Domain, phương án an toàn hơn là map `ApplicationUser` hoặc cấu hình Identity để sử dụng lớp scaffolded. Trong trường hợp này, đừng tạo migration mới trừ khi bạn thực sự chuyển sang code-first.
-
-Ghi chú: repository hiện có `LmsMini.Domain.Entities.AspNetUser` (Guid Id). Document phải tương ứng với chiến lược của team.
-
-## 3. Cập nhật DbContext (Infrastructure)
-
-DbContext nên kế thừa IdentityDbContext nếu bạn dùng Identity với EF stores. Ví dụ:
-
-```csharp
-public class LmsDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
-{
-    public LmsDbContext(DbContextOptions<LmsDbContext> options)
-        : base(options) { }
-
-    public DbSet<Course> Courses { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder builder)
-    {
-        base.OnModelCreating(builder);
-        // cấu hình Fluent API cho entity nghiệp vụ, RowVersion, global filters...
-    }
-}
-```
-
-Nếu dùng scaffolded AspNetUser/AspNetRole, bạn có thể giữ lớp DbContext scaffolded và chỉ gọi base.OnModelCreating(builder) để đảm bảo mapping.
-
-## 4. Migrations & Database
-
-Nếu dự án sử dụng code-first cho Identity, tạo migration như sau từ solution root:
-
-```bash
-dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api
-dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
-```
-
-Nếu bạn đang dùng database-first (scaffold), không tạo migration trùng lặp — thay vào đó điều chỉnh mapping hoặc cập nhật scaffold.
-
-## 5. Seed roles và admin user (idempotent)
-
-Ví dụ snippet gọi tại khởi động (Program.cs) — chạy trong scope:
+- Nếu DB đã có bảng roles: gọi RoleSeeder (idempotent) tại Program.cs sau app build, trước app.Run():
 
 ```csharp
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-
-    string[] roles = new[] { "Admin", "Instructor", "Learner" };
-    foreach (var r in roles)
-    {
-        if (!await roleManager.RoleExistsAsync(r))
-            await roleManager.CreateAsync(new IdentityRole<Guid>(r));
-    }
-
-    // (Option) seed admin user idempotent: check by email, create with strong password and AddToRoleAsync
+    await LmsMini.Infrastructure.Services.RoleSeeder.SeedAsync(scope.ServiceProvider);
 }
 ```
 
-## 6. Register / Login (ví dụ)
+- Nếu DB không có bảng roles: lưu SQL script idempotent vào `LmsMini.Api/docs/identity/sql/create-identity-tables.sql` và phối hợp DBA chạy script, sau đó chạy seeder.
 
-Minimal AccountController sample (Presentation layer). Đây là ví dụ để kiểm thử end-to-end — trong production nên dùng MediatR/handlers và validation.
+### Bước 5 — Kiểm thử Register / Login (Swagger/Postman)
+
+- Mở Swagger (Development) hoặc dùng Postman.
+- POST /api/account/register với payload RegisterRequest → kiểm tra AspNetUsers table có record (nếu Registration bật).
+- POST /api/account/login → kiểm tra SignInResult.
+
+Ghi chú: trong môi trường database‑first, behavior của Register có thể cần kiểm tra chính sách mật khẩu (PasswordOptions) — nếu lỗi "Password does not meet requirements" hãy điều chỉnh PasswordOptions trong AddDefaultIdentity hoặc dùng mật khẩu test đủ mạnh.
+
+### Bước 6 — Công việc CI / release note (migration review)
+
+- Mọi migration pull request phải được review: nếu migration thay đổi AspNet* → block và thông báo DBA.
+- Lưu SQL seed scripts vào docs/identity/sql/ và ghi rõ phụ thuộc: "DBA phải chạy trước seeder".
+
+---
+
+## File & thư mục (vị trí chính xác)
+
+Tóm tắt đường dẫn (relative to solution):
+
+- LmsMini.Domain/Entities/Identity/ApplicationUser.cs
+- LmsMini.Domain/Entities/Identity/AspNetUser.cs (scaffolded — đọc, không sửa)
+- LmsMini.Api/Controllers/AccountController.cs
+- LmsMini.Api/DTOs/RegisterRequest.cs
+- LmsMini.Api/DTOs/LoginRequest.cs
+- LmsMini.Infrastructure/Services/RoleSeeder.cs
+- LmsMini.Api/docs/identity/sql/ (nơi lưu SQL seed scripts cho DBA)
+
+---
+
+## Lưu ý vận hành & chia sẻ tài liệu
+
+- Đưa link đến file này trong SDD.md: thêm mục "Identity integration — database‑first" với quyết định rõ ràng.
+- Khi share với đồng nghiệp, kèm checklist và chỉ dẫn chạy local (dotnet build, kiểm tra DB, chạy app, thử endpoints).
+- Không commit secrets; dùng user‑secrets cho keys.
+
+---
+
+## Appendices: Commands & snippets
+
+- Tạo migration (CHỈ CHO NGHIỆP VỤ):
+  dotnet ef migrations add <MigrationName> -p LmsMini.Infrastructure -s LmsMini.Api
+  dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
+
+- RoleSeeder snippet (call from Program.cs):
 
 ```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class AccountController : ControllerBase
+using (var scope = app.Services.CreateScope())
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager;
-
-    public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
-    {
-        _userManager = userManager;
-        _signInManager = signInManager;
-    }
-
-    [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
-    {
-        var user = new ApplicationUser { UserName = request.Email, Email = request.Email, FullName = request.FullName };
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded) return BadRequest(result.Errors);
-
-        // optional: assign role
-        if (!string.IsNullOrWhiteSpace(request.Role))
-        {
-            // ensure role exists and add to role (in this sample assume RoleManager available)
-        }
-
-        await _signIn_manager.SignInAsync(user, isPersistent: false);
-        return Ok(new { message = "Đăng ký thành công" });
-    }
-
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
-    {
-        var result = await _signInManager.PasswordSignInAsync(request.Email, request.Password, request.RememberMe, lockoutOnFailure: false);
-        if (!result.Succeeded) return Unauthorized(new { message = "Sai thông tin đăng nhập" });
-        return Ok(new { message = "Đăng nhập thành công" });
-    }
+    await LmsMini.Infrastructure.Services.RoleSeeder.SeedAsync(scope.ServiceProvider);
 }
 ```
 
-DTOs:
+- SQL skeleton (đặt vào docs/identity/sql/create-identity-tables.sql và gửi DBA để apply):
 
-```csharp
-public class RegisterRequest { public string Email { get; set; } = string.Empty; public string FullName { get; set; } = string.Empty; public string Password { get; set; } = string.Empty; public string? Role { get; set; } }
-public class LoginRequest { public string Email { get; set; } = string.Empty; public string Password { get; set; } = string.Empty; public bool RememberMe { get; set; } = false; }
+```sql
+-- minimal AspNetRoles + AspNetUserRoles example (DBA review required)
+CREATE TABLE dbo.AspNetRoles (
+    Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    [Name] NVARCHAR(256) NULL,
+    [NormalizedName] NVARCHAR(256) NULL,
+    CONSTRAINT UQ_AspNetRoles_NormalizedName UNIQUE (NormalizedName)
+);
+
+CREATE TABLE dbo.AspNetUserRoles (
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    RoleId UNIQUEIDENTIFIER NOT NULL,
+    PRIMARY KEY (UserId, RoleId),
+    FOREIGN KEY (UserId) REFERENCES dbo.AspNetUsers(Id),
+    FOREIGN KEY (RoleId) REFERENCES dbo.AspNetRoles(Id)
+);
 ```
 
-Ghi chú: sửa _signIn_manager -> _signInManager nếu cần; ví dụ trên giữ cấu trúc logic, bạn có thể chuyển vào Application Layer (handlers) theo CQRS.
-
-## 7. Test nhanh
-
-- Sau khi khởi động: sử dụng Swagger/Postman gọi POST /api/account/register và POST /api/account/login.
-- Kiểm tra bảng AspNetUsers, AspNetRoles, AspNetUserRoles trong DB để xác nhận dữ liệu.
-
-## 8. Lỗi thường gặp & cách xử lý
-
-- No database provider has been configured: chưa cấu hình UseSqlServer/Db provider trong Program.cs hoặc connection string sai.
-- Password does not meet requirements: điều chỉnh PasswordOptions trong AddDefaultIdentity hoặc dùng mật khẩu đủ mạnh.
-- Migration trùng lặp khi scaffolded DB: nếu DB đã có bảng AspNet*, tránh tạo migration trùng; sử dụng mapping thay vì code-first migration.
-
-## Next steps & tham chiếu
-
-- Checklist Sprint 2 (ngắn):
-  - Đăng ký Identity trong Program.cs.
-  - Tạo migration Init_Identity (nếu code-first).
-  - Seed roles + admin.
-  - Tạo minimal Register/Login endpoints và unit tests.
-  - Tạo JwtService skeleton nếu dùng JWT.
-
-- Tham chiếu nội bộ: docs/architecture/CleanArchitecture.md, docs/sprints/Sprint2_2025-09-15_to_2025-09-28.md
+---
 
 ## Appendices / Sequence diagrams
 
-Below are sequence diagrams and PlantUML sources for common Identity flows used in this guide. You can copy the PlantUML blocks into a PlantUML renderer to visualize them.
+Below are updated diagrams (PlantUML + plain text) designed to be clearer for a database‑first implementation. Copy PlantUML blocks into a PlantUML renderer (or VS Code PlantUML extension) to visualize.
 
-### Luồng Đăng ký (Register) — Plain text
+### Architecture — Component diagram (Clean Architecture mapping)
 
-```plaintext
-User
-  |
-  | 1. POST /api/account/register (email, password, fullname)
-  v
-[AccountController]
-  |
-  | 2. Controller -> Application (RegisterHandler) : RegisterCommand
-  v
-[Application Layer]
-  |
-  | 3. RegisterHandler -> Infrastructure : UserManager.CreateAsync(user, password)
-  v
-[Infrastructure: Identity + LmsDbContext]
-  |
-  | 4. EF Core -> Database : INSERT AspNetUsers
-  v
-[Database]
-  |
-  | 5. Database -> Infrastructure : Success
-  ^
-[Infrastructure]
-  |
-  | 6. If success -> SignInManager.SignInAsync(user)
-  v
-[Infrastructure]
-  |
-  | 7. Handler -> Controller : Result
-  v
-[AccountController]
-  |
-  | 8. Controller -> User : HTTP 200 OK (Đăng ký thành công)
+```plantuml
+@startuml
+!define ICONURL https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-awesome/master
+' Components: Presentation, Application, Domain, Infrastructure, Database
+package "Presentation" {
+  [AccountController]
+}
+package "Application" {
+  [RegisterHandler]
+  [LoginHandler]
+}
+package "Domain" {
+  [AspNetUser (scaffolded)]
+  [Course]
+}
+package "Infrastructure" {
+  [UserManager] 
+  [SignInManager]
+  [RoleManager]
+  [LmsDbContext]
+  [RoleSeeder]
+}
+package "Database" {
+  [AspNetUsers]
+  [AspNetRoles]
+  [AspNetUserRoles]
+  [Courses]
+}
+
+AccountController --> RegisterHandler : RegisterCommand
+AccountController --> LoginHandler : LoginCommand
+RegisterHandler --> UserManager : CreateAsync(user, pwd)
+LoginHandler --> SignInManager : PasswordSignInAsync(...)
+UserManager --> LmsDbContext : EF operations
+RoleManager --> LmsDbContext : EF operations
+LmsDbContext --> AspNetUsers : maps to table
+LmsDbContext --> AspNetRoles : maps to table
+RoleSeeder --> RoleManager : Ensure roles exist
+
+note right of LmsDbContext
+  Database-first: LmsDbContext is scaffolded
+  Mapping must preserve existing AspNet* tables
+end note
+
+@enduml
 ```
 
-### Luồng Đăng ký (Register) — PlantUML
+---
+
+### Register (refined sequence)
 
 ```plantuml
 @startuml
 actor User
+participant Controller as "AccountController"
+participant App as "RegisterHandler (Application)"
+participant UM as "UserManager (Identity)"
+participant DB as "LmsDbContext / Database"
+
 User -> Controller : POST /api/account/register
-Controller -> Application : RegisterHandler(request)
-Application -> Infrastructure : UserManager.CreateAsync(user, pwd)
-Infrastructure -> Database : INSERT AspNetUsers
-Database --> Infrastructure : Success
-Infrastructure -> Infrastructure : SignInManager.SignInAsync(user)
-Infrastructure --> Application : Success
-Application --> Controller : "Đăng ký thành công"
-Controller --> User : HTTP 200 OK
+Controller -> App : RegisterCommand
+App -> UM : CreateAsync(user, password)
+UM -> DB : INSERT INTO AspNetUsers (mapped)
+DB --> UM : Success / Failure
+UM --> App : IdentityResult
+alt Success
+  App -> Controller : 200 OK (registered)
+else Failure
+  App -> Controller : 400 BadRequest (errors)
+end
+Controller -> User : HTTP response
+
+note over UM,DB
+  DB-first: Ensure AspNetUsers table exists before running this flow.
+end note
 @enduml
 ```
 
+Plain text same flow (for quick reading):
+- Client → AccountController (POST /register)
+- Controller → RegisterHandler (Application)
+- RegisterHandler → UserManager.CreateAsync → LmsDbContext → AspNetUsers
+- Return result up the chain
+
 ---
 
-### Luồng Đăng nhập (Login) — Plain text
-
-```plaintext
-User
-  |
-  | 1. POST /api/account/login (email, password)
-  v
-[AccountController]
-  |
-  | 2. Controller -> Application (LoginHandler) : LoginCommand
-  v
-[Application Layer]
-  |
-  | 3. LoginHandler -> Infrastructure : SignInManager.PasswordSignInAsync(email, password)
-  v
-[Infrastructure: Identity + LmsDbContext]
-  |
-  | 4. EF Core -> Database : SELECT AspNetUsers WHERE Email=..
-  v
-[Database]
-  |
-  | 5. Database -> Infrastructure : User + Roles
-  ^
-[Infrastructure]
-  |
-  | 6. Infrastructure -> Application : SignInResult
-  |
-  | 7. Application -> Controller : Return token/cookie or Unauthorized
-  v
-Controller -> User : HTTP 200 OK (or 401)
-```
-
-### Luồng Đăng nhập (Login) — PlantUML
+### Login (refined sequence)
 
 ```plantuml
 @startuml
 actor User
+participant Controller as "AccountController"
+participant App as "LoginHandler (Application)"
+participant SM as "SignInManager"
+participant DB as "LmsDbContext / Database"
+
 User -> Controller : POST /api/account/login
-Controller -> Application : LoginHandler(request)
-Application -> Infrastructure : SignInManager.PasswordSignInAsync(email, password)
-Infrastructure -> Database : SELECT AspNetUsers
-Database --> Infrastructure : User
-Infrastructure --> Application : SignInResult
-Application --> Controller : "Đăng nhập thành công"/"Unauthorized"
-Controller --> User : HTTP response
+Controller -> App : LoginCommand
+App -> SM : PasswordSignInAsync(email, pwd)
+SM -> DB : SELECT AspNetUsers, AspNetUserRoles, AspNetRoles
+DB --> SM : Principal / roles
+SM --> App : SignInResult
+alt Success
+  App -> Controller : 200 OK (token/cookie)
+else Failure
+  App -> Controller : 401 Unauthorized
+end
+Controller -> User : HTTP response
+
+note over SM,DB
+  DB-first: roles/tables must exist. If roles absent, RoleSeeder or DBA script required.
+end note
 @enduml
 ```
 
 ---
 
-### Luồng kiểm tra phân quyền (Authorize - Roles)
-
-```plaintext
-User
-  |
-  | 1. GET /api/secure (requires [Authorize(Roles="Admin")])
-  v
-[Web Server / Middleware]
-  |
-  | 2. Authentication middleware reads token/cookie and validates
-  v
-[Auth Handler]
-  |
-  | 3. Auth -> Infrastructure : Load user + roles (AspNetUsers, AspNetUserRoles, AspNetRoles)
-  v
-[Infrastructure]
-  |
-  | 4. Infrastructure -> Database : SELECT user roles
-  v
-[Database]
-  |
-  | 5. Database -> Infrastructure : roles
-  ^
-[Infrastructure]
-  |
-  | 6. Authorization middleware checks role "Admin"
-  |   - If has role: continue to Controller
-  |   - Else: return 403 Forbidden
-```
-
-### Luồng kiểm tra phân quyền (Authorize) — PlantUML
+### Authorization (Authorize attribute — simplified)
 
 ```plantuml
 @startuml
 actor User
-User -> Controller : HTTP GET /secure
-Controller -> AuthMiddleware : Check [Authorize(Roles="Admin")]
-AuthMiddleware -> AuthHandler : Authenticate request
-AuthHandler -> Infrastructure : Get user + roles from DB
-Infrastructure -> Database : SELECT AspNetUsers, AspNetUserRoles, AspNetRoles
-Database --> Infrastructure : User + Roles
-Infrastructure --> AuthHandler : Authenticated principal
-AuthHandler -> AuthzMiddleware : Pass principal
-AuthzMiddleware -> AuthzMiddleware : Check role "Admin"
-alt Has Role
-    AuthzMiddleware --> Controller : Access granted
-    Controller -> User : HTTP 200 OK (Secret content)
-else No Role
-    AuthzMiddleware -> User : HTTP 403 Forbidden
+participant Middleware as "Auth Middleware"
+participant DB as "LmsDbContext / Database"
+participant Controller as "Controller Action"
+
+User -> Controller : GET /secure
+Controller -> Middleware : [Authorize(Roles="Admin")]
+Middleware -> DB : Load principal roles (AspNetUserRoles)
+DB --> Middleware : Roles
+alt Has Admin
+  Middleware -> Controller : Proceed
+  Controller -> User : 200 OK
+else No Admin
+  Middleware -> User : 403 Forbidden
 end
 @enduml
 ```
 
 ---
 
-If you want additional diagrams or to split PlantUML into separate files under docs/appendices/plantuml/, tell me and I will add them.
+### Role seeding flow (idempotent)
+
+```plantuml
+@startuml
+actor Operator
+participant App as "API (Program.cs)"
+participant Seeder as "RoleSeeder"
+participant RM as "RoleManager"
+participant DB as "LmsDbContext / Database"
+
+Operator -> App : Start application
+App -> Seeder : SeedAsync(serviceProvider)
+Seeder -> RM : RoleExistsAsync("Admin")
+alt Not exists
+  RM -> DB : INSERT AspNetRoles
+  DB --> RM : Success
+  RM --> Seeder : Created
+else Exists
+  RM --> Seeder : Already exists
+end
+Seeder --> App : Done
+App -> Operator : Application running
+
+note over Seeder,DB
+  If AspNetRoles table missing -> abort and instruct DBA to run SQL script
+end note
+@enduml
+```
+
+---
+
+All PlantUML blocks above include notes reminding that project uses database‑first and that AspNet* tables must be present/managed by DBA. Render and include these diagrams in internal docs or SDD for better team understanding.
 
