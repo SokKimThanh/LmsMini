@@ -186,6 +186,7 @@ CREATE TABLE dbo.AspNetUserRoles (
 Below are updated diagrams (PlantUML + plain text) designed to be clearer for a database‑first implementation. Copy PlantUML blocks into a PlantUML renderer (or VS Code PlantUML extension) to visualize.
 
 ### Architecture — Component diagram (Clean Architecture mapping)
+<img width="789" height="794" alt="image" src="https://github.com/user-attachments/assets/54499b11-6226-4c5e-bc1e-cdac0a812007" />
 
 ```plantuml
 @startuml
@@ -237,6 +238,7 @@ end note
 ---
 
 ### Register (refined sequence)
+<img width="992" height="524" alt="image" src="https://github.com/user-attachments/assets/fa571ac7-35d5-4581-b026-62d549dbadfa" />
 
 ```plantuml
 @startuml
@@ -274,6 +276,7 @@ Plain text same flow (for quick reading):
 ---
 
 ### Login (refined sequence)
+<img width="1103" height="524" alt="image" src="https://github.com/user-attachments/assets/5534d72d-9bbf-47cc-a1be-bdc47dd44184" />
 
 ```plantuml
 @startuml
@@ -305,6 +308,7 @@ end note
 ---
 
 ### Authorization (Authorize attribute — simplified)
+<img width="691" height="430" alt="image" src="https://github.com/user-attachments/assets/b27e2088-1bbd-4eb3-9710-4c97126e6a73" />
 
 ```plantuml
 @startuml
@@ -329,6 +333,7 @@ end
 ---
 
 ### Role seeding flow (idempotent)
+<img width="866" height="524" alt="image" src="https://github.com/user-attachments/assets/ec4bb38b-88ef-43bc-a45d-c891ccc113d5" />
 
 ```plantuml
 @startuml
