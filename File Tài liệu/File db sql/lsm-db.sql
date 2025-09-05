@@ -337,8 +337,15 @@ GO
 ----------------------------------------------------------------
 -- Done
 ----------------------------------------------------------------
-PRINT 'Identity script executed (check messages above for any skipped FK due to missing AspNetUsers).';
-GO
+IF OBJECT_ID('dbo.AspNetUsers','U') IS NULL
+BEGIN
+    RAISERROR('❌ CẢNH BÁO: Bảng AspNetUsers KHÔNG tồn tại, các FK phụ thuộc sẽ KHÔNG được tạo. Vui lòng tạo AspNetUsers trước.',16,1);
+END
+ELSE
+BEGIN
+    PRINT '✅ AspNetUsers tồn tại, các FK đã được ràng buộc thành công.';
+END
+
 
 /* 4) Courses (audit + soft delete + filtered unique + RowVersion) */
 CREATE TABLE dbo.Courses (
