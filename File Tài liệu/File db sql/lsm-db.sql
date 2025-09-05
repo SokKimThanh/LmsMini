@@ -31,7 +31,14 @@ IF OBJECT_ID('dbo.FileAssets','U') IS NOT NULL DROP TABLE dbo.FileAssets;
 IF OBJECT_ID('dbo.OutboxMessages','U') IS NOT NULL DROP TABLE dbo.OutboxMessages;
 IF OBJECT_ID('dbo.AuditLogs','U') IS NOT NULL DROP TABLE dbo.AuditLogs;
 IF OBJECT_ID('dbo.Courses','U') IS NOT NULL DROP TABLE dbo.Courses;
+
 IF OBJECT_ID('dbo.AspNetUsers','U') IS NOT NULL DROP TABLE dbo.AspNetUsers;
+IF OBJECT_ID('dbo.AspNetRoles','U') IS NOT NULL DROP TABLE dbo.AspNetRoles;
+IF OBJECT_ID('dbo.AspNetRoleClaims','U') IS NOT NULL DROP TABLE dbo.AspNetRoleClaims;
+IF OBJECT_ID('dbo.AspNetUserClaims','U') IS NOT NULL DROP TABLE dbo.AspNetUserClaims;
+IF OBJECT_ID('dbo.AspNetUserLogins','U') IS NOT NULL DROP TABLE dbo.AspNetUserLogins;
+IF OBJECT_ID('dbo.AspNetUserTokens','U') IS NOT NULL DROP TABLE dbo.AspNetUserTokens;
+IF OBJECT_ID('dbo.AspNetUserRoles','U') IS NOT NULL DROP TABLE dbo.AspNetUserRoles;
 GO
 
 /* 3) AspNetUsers (Identity) - theo SDD, không soft delete/audit mở rộng */
@@ -56,6 +63,281 @@ ALTER TABLE dbo.AspNetUsers ADD CONSTRAINT PK_AspNetUsers PRIMARY KEY (Id);
 ALTER TABLE dbo.AspNetUsers ADD CONSTRAINT UQ_AspNetUsers_NormalizedUserName UNIQUE (NormalizedUserName);
 CREATE INDEX IX_AspNetUsers_NormalizedEmail ON dbo.AspNetUsers(NormalizedEmail);
 CREATE INDEX IX_AspNetUsers_UserName ON dbo.AspNetUsers(UserName);
+GO
+-- =====================================================
+-- File: identity-all-in-one.sql
+-- Mục đích: Tạo các bảng AspNet* (idempotent), index, seed roles
+-- Ghi chú:
+--  - Dòng DROP đã được comment sẵn. Bỏ '--' nếu bạn thực sự muốn xóa trước khi tạo.
+--  - Script kiểm tra tồn tại từng bảng/constraint/index trước khi tạo.
+--  - Nếu dbo.AspNetUsers không tồn tại, các FK tới AspNetUsers sẽ bị bỏ qua (sẽ có PRINT).
+--  - Trước khi chạy: backup database.
+-- =====================================================
+ 
+----------------------------------------------------------------
+-- 1) AspNetRoles
+----------------------------------------------------------------
+IF OBJECT_ID('dbo.AspNetRoles','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AspNetRoles (
+        Id UNIQUEIDENTIFIER NOT NULL,
+        [Name] NVARCHAR(256) NULL,
+        NormalizedName NVARCHAR(256) NULL,
+        ConcurrencyStamp NVARCHAR(MAX) NULL
+    );
+    ALTER TABLE dbo.AspNetRoles ADD CONSTRAINT PK_AspNetRoles PRIMARY KEY (Id);
+END
+GO
+
+-- Unique index on NormalizedName (idempotent)
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_AspNetRoles_NormalizedName' AND object_id = OBJECT_ID('dbo.AspNetRoles'))
+BEGIN
+    CREATE UNIQUE INDEX UQ_AspNetRoles_NormalizedName ON dbo.AspNetRoles(NormalizedName);
+END
+GO
+
+----------------------------------------------------------------
+-- 2) AspNetRoleClaims
+----------------------------------------------------------------
+IF OBJECT_ID('dbo.AspNetRoleClaims','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AspNetRoleClaims (
+        Id INT IDENTITY(1,1) NOT NULL,
+        RoleId UNIQUEIDENTIFIER NOT NULL,
+        ClaimType NVARCHAR(MAX) NULL,
+        ClaimValue NVARCHAR(MAX) NULL
+    );
+    ALTER TABLE dbo.AspNetRoleClaims ADD CONSTRAINT PK_AspNetRoleClaims PRIMARY KEY (Id);
+END
+GO
+
+-- FK AspNetRoleClaims -> AspNetRoles (only add if AspNetRoles exists)
+IF OBJECT_ID('dbo.AspNetRoles','U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.foreign_keys fk
+        WHERE fk.parent_object_id = OBJECT_ID('dbo.AspNetRoleClaims') AND fk.referenced_object_id = OBJECT_ID('dbo.AspNetRoles')
+    )
+    BEGIN
+        ALTER TABLE dbo.AspNetRoleClaims
+        ADD CONSTRAINT FK_AspNetRoleClaims_AspNetRoles FOREIGN KEY (RoleId) REFERENCES dbo.AspNetRoles(Id);
+    END
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AspNetRoleClaims_RoleId' AND object_id = OBJECT_ID('dbo.AspNetRoleClaims'))
+BEGIN
+    CREATE INDEX IX_AspNetRoleClaims_RoleId ON dbo.AspNetRoleClaims(RoleId);
+END
+GO
+
+----------------------------------------------------------------
+-- 3) AspNetUserClaims
+----------------------------------------------------------------
+IF OBJECT_ID('dbo.AspNetUserClaims','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AspNetUserClaims (
+        Id INT IDENTITY(1,1) NOT NULL,
+        UserId UNIQUEIDENTIFIER NOT NULL,
+        ClaimType NVARCHAR(MAX) NULL,
+        ClaimValue NVARCHAR(MAX) NULL
+    );
+    ALTER TABLE dbo.AspNetUserClaims ADD CONSTRAINT PK_AspNetUserClaims PRIMARY KEY (Id);
+END
+GO
+
+-- FK AspNetUserClaims -> AspNetUsers (only if AspNetUsers exists)
+IF OBJECT_ID('dbo.AspNetUsers','U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.foreign_keys fk
+        WHERE fk.parent_object_id = OBJECT_ID('dbo.AspNetUserClaims') AND fk.referenced_object_id = OBJECT_ID('dbo.AspNetUsers')
+    )
+    BEGIN
+        ALTER TABLE dbo.AspNetUserClaims
+        ADD CONSTRAINT FK_AspNetUserClaims_AspNetUsers FOREIGN KEY (UserId) REFERENCES dbo.AspNetUsers(Id);
+    END
+END
+ELSE
+BEGIN
+    PRINT 'NOTICE: dbo.AspNetUsers not found => FK AspNetUserClaims_AspNetUsers skipped.';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AspNetUserClaims_UserId' AND object_id = OBJECT_ID('dbo.AspNetUserClaims'))
+BEGIN
+    CREATE INDEX IX_AspNetUserClaims_UserId ON dbo.AspNetUserClaims(UserId);
+END
+GO
+
+----------------------------------------------------------------
+-- 4) AspNetUserLogins
+----------------------------------------------------------------
+IF OBJECT_ID('dbo.AspNetUserLogins','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AspNetUserLogins (
+        LoginProvider NVARCHAR(128) NOT NULL,
+        ProviderKey NVARCHAR(128) NOT NULL,
+        ProviderDisplayName NVARCHAR(256) NULL,
+        UserId UNIQUEIDENTIFIER NOT NULL
+    );
+    ALTER TABLE dbo.AspNetUserLogins ADD CONSTRAINT PK_AspNetUserLogins PRIMARY KEY (LoginProvider, ProviderKey);
+END
+GO
+
+-- FK AspNetUserLogins -> AspNetUsers
+IF OBJECT_ID('dbo.AspNetUsers','U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.foreign_keys fk
+        WHERE fk.parent_object_id = OBJECT_ID('dbo.AspNetUserLogins') AND fk.referenced_object_id = OBJECT_ID('dbo.AspNetUsers')
+    )
+    BEGIN
+        ALTER TABLE dbo.AspNetUserLogins
+        ADD CONSTRAINT FK_AspNetUserLogins_AspNetUsers FOREIGN KEY (UserId) REFERENCES dbo.AspNetUsers(Id);
+    END
+END
+ELSE
+BEGIN
+    PRINT 'NOTICE: dbo.AspNetUsers not found => FK AspNetUserLogins_AspNetUsers skipped.';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AspNetUserLogins_UserId' AND object_id = OBJECT_ID('dbo.AspNetUserLogins'))
+BEGIN
+    CREATE INDEX IX_AspNetUserLogins_UserId ON dbo.AspNetUserLogins(UserId);
+END
+GO
+
+----------------------------------------------------------------
+-- 5) AspNetUserTokens
+----------------------------------------------------------------
+IF OBJECT_ID('dbo.AspNetUserTokens','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AspNetUserTokens (
+        UserId UNIQUEIDENTIFIER NOT NULL,
+        LoginProvider NVARCHAR(128) NOT NULL,
+        Name NVARCHAR(128) NOT NULL,
+        Value NVARCHAR(MAX) NULL
+    );
+    ALTER TABLE dbo.AspNetUserTokens ADD CONSTRAINT PK_AspNetUserTokens PRIMARY KEY (UserId, LoginProvider, Name);
+END
+GO
+
+-- FK AspNetUserTokens -> AspNetUsers
+IF OBJECT_ID('dbo.AspNetUsers','U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.foreign_keys fk
+        WHERE fk.parent_object_id = OBJECT_ID('dbo.AspNetUserTokens') AND fk.referenced_object_id = OBJECT_ID('dbo.AspNetUsers')
+    )
+    BEGIN
+        ALTER TABLE dbo.AspNetUserTokens
+        ADD CONSTRAINT FK_AspNetUserTokens_AspNetUsers FOREIGN KEY (UserId) REFERENCES dbo.AspNetUsers(Id);
+    END
+END
+ELSE
+BEGIN
+    PRINT 'NOTICE: dbo.AspNetUsers not found => FK AspNetUserTokens_AspNetUsers skipped.';
+END
+GO
+
+----------------------------------------------------------------
+-- 6) AspNetUserRoles
+----------------------------------------------------------------
+IF OBJECT_ID('dbo.AspNetUserRoles','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.AspNetUserRoles (
+        UserId UNIQUEIDENTIFIER NOT NULL,
+        RoleId UNIQUEIDENTIFIER NOT NULL
+    );
+    ALTER TABLE dbo.AspNetUserRoles ADD CONSTRAINT PK_AspNetUserRoles PRIMARY KEY (UserId, RoleId);
+END
+GO
+
+-- FK AspNetUserRoles -> AspNetUsers (UserId)
+IF OBJECT_ID('dbo.AspNetUsers','U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.foreign_keys fk
+        WHERE fk.parent_object_id = OBJECT_ID('dbo.AspNetUserRoles') AND fk.referenced_object_id = OBJECT_ID('dbo.AspNetUsers')
+    )
+    BEGIN
+        ALTER TABLE dbo.AspNetUserRoles
+        ADD CONSTRAINT FK_AspNetUserRoles_User FOREIGN KEY (UserId) REFERENCES dbo.AspNetUsers(Id);
+    END
+END
+ELSE
+BEGIN
+    PRINT 'NOTICE: dbo.AspNetUsers not found => FK AspNetUserRoles_User skipped.';
+END
+GO
+
+-- FK AspNetUserRoles -> AspNetRoles (RoleId)
+IF OBJECT_ID('dbo.AspNetRoles','U') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.foreign_keys fk
+        WHERE fk.parent_object_id = OBJECT_ID('dbo.AspNetUserRoles') AND fk.referenced_object_id = OBJECT_ID('dbo.AspNetRoles')
+    )
+    BEGIN
+        ALTER TABLE dbo.AspNetUserRoles
+        ADD CONSTRAINT FK_AspNetUserRoles_Role FOREIGN KEY (RoleId) REFERENCES dbo.AspNetRoles(Id);
+    END
+END
+ELSE
+BEGIN
+    PRINT 'NOTICE: dbo.AspNetRoles not found => FK AspNetUserRoles_Role skipped.';
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AspNetUserRoles_RoleId' AND object_id = OBJECT_ID('dbo.AspNetUserRoles'))
+BEGIN
+    CREATE INDEX IX_AspNetUserRoles_RoleId ON dbo.AspNetUserRoles(RoleId);
+END
+GO
+
+----------------------------------------------------------------
+-- 7) Additional Indexes / Support (follow SDD naming)
+----------------------------------------------------------------
+-- IX on AspNetUsers.NormalizedEmail (if AspNetUsers exists)
+--IF OBJECT_ID('dbo.AspNetUsers','U') IS NOT NULL
+--BEGIN
+--    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AspNetUsers_NormalizedEmail' AND object_id = OBJECT_ID('dbo.AspNetUsers'))
+--    BEGIN
+--        CREATE INDEX IX_AspNetUsers_NormalizedEmail ON dbo.AspNetUsers(NormalizedEmail);
+--    END
+--END
+--GO
+
+----------------------------------------------------------------
+-- 8) Seed roles (idempotent) - theo SDD: Admin, Instructor, Learner
+----------------------------------------------------------------
+IF NOT EXISTS (SELECT 1 FROM dbo.AspNetRoles WHERE NormalizedName = 'ADMIN')
+BEGIN
+    INSERT INTO dbo.AspNetRoles (Id, [Name], NormalizedName, ConcurrencyStamp)
+    VALUES (NEWID(), 'Admin', 'ADMIN', NEWID());
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.AspNetRoles WHERE NormalizedName = 'INSTRUCTOR')
+BEGIN
+    INSERT INTO dbo.AspNetRoles (Id, [Name], NormalizedName, ConcurrencyStamp)
+    VALUES (NEWID(), 'Instructor', 'INSTRUCTOR', NEWID());
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.AspNetRoles WHERE NormalizedName = 'LEARNER')
+BEGIN
+    INSERT INTO dbo.AspNetRoles (Id, [Name], NormalizedName, ConcurrencyStamp)
+    VALUES (NEWID(), 'Learner', 'LEARNER', NEWID());
+END
+GO
+
+----------------------------------------------------------------
+-- Done
+----------------------------------------------------------------
+PRINT 'Identity script executed (check messages above for any skipped FK due to missing AspNetUsers).';
 GO
 
 /* 4) Courses (audit + soft delete + filtered unique + RowVersion) */
