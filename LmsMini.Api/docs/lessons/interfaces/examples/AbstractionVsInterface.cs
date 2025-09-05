@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace LmsMini.Api.Docs.Examples
+namespace LmsMini.Api.docs.lessons.interfaces.examples
 {
     // Interface: hợp đồng (không có state)
     public interface ILogger
