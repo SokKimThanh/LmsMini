@@ -1,292 +1,277 @@
-# Table of Contents
+# ASP.NET Identity — Hướng dẫn triển khai (Clean Architecture, phù hợp Sprint 2)
+
+## Mục lục
 
 - [Giới thiệu](#giới-thiệu)
-- [Kiến trúc tổng thể](#kiến-trúc-tổng-thể)
-  - [Các Layer](#các-layer)
-  - [Nguyên tắc phụ thuộc](#nguyên-tắc-phụ-thuộc)
-- [Sơ đồ luồng xử lý](#sơ-đồ-luồng-xử-lý)
-- [Tích hợp ASP.NET Identity](#tích-hợp-aspnet-identity)
-  - [Cấu hình trong Program.cs](#cấu-hình-trong-programcs)
-  - [Tạo lớp ApplicationUser (Domain Layer)](#tạo-lớp-applicationuser-domain-layer)
-  - [Cập nhật ApplicationDbContext (Infrastructure Layer)](#cập-nhật-applicationdbcontext-infrastructure-layer)
-- [Migration & Database](#migration--database)
-- [Thực hành các chức năng cơ bản](#thực-hành-các-chức-năng-cơ-bản)
-  - [Đăng ký người dùng (Presentation Layer)](#đăng-ký-người-dùng-presentation-layer)
-  - [Đăng nhập](#đăng-nhập)
-  - [Tạo Role và gán cho User](#tạo-role-và-gán-cho-user)
-- [Phân quyền trong Controller](#phân-quyền-trong-controller)
-- [Test nhanh](#test-nhanh)
-  - [Swagger / Postman](#swagger--postman)
-  - [Razor Page mặc định](#razor-page-mặc-định)
-- [Lỗi thường gặp & cách xử lý](#lỗi-thường-gặp--cách-xử-lý)
-- [Liên kết tới Clean Architecture](#liên-kết-tới-clean-architecture)
-- [Tài liệu tham khảo](#tài-liệu-tham-khảo)
-- [Sơ đồ Sequence chi tiết](#sơ-đồ-sequence-chi-tiết)
-  - [Luồng Đăng ký (Register)](#luồng-đăng-ký-register)
-  - [Luồng Đăng nhập (Login)](#luồng-đăng-nhập-login)
-- [Sơ đồ Sequence - Chức năng Phân quyền (Authorize)](#sơ-đồ-sequence---chức-năng-phân-quyền-authorize)
-  - [Luồng kiểm tra quyền truy cập với Authorize(Roles = "Admin")](#luồng-kiểm-tra-quyền-truy-cập-với-authorizeroles--admin)
-  - [PlantUML — Kiểm tra phân quyền (Authorize)](#plantuml--kiểm-tra-phân-quyền-authorize)
-- [Ví dụ mã nguồn đầy đủ (AccountController, DTOs, Handlers)](#ví-dụ-mã-nguồn-đầy-đủ-accountcontroller-dtos-handlers)
-  - [AccountController.cs (Presentation Layer)](#accountcontrollercs-presentation-layer)
-  - [DTOs (Requests)](#dtos-requests)
-  - [Handlers / Services (Application Layer)](#handlers--services-application-layer)
+- [Yêu cầu trước khi bắt đầu](#yêu-cầu-trước-khi-bắt-đầu)
+- [Tổng quan (nhiệm vụ chính)](#tổng-quan-nhiệm-vụ-chính)
+- [Mapping: Identity ↔ Clean Architecture](#mapping-identity-↔-clean-architecture)
+- [1. Đăng ký Identity trong Program.cs](#1-đăng-ký-identity-trong-programcs)
+- [2. ApplicationUser / mapping (Domain)](#2-applicationuser--mapping-domain)
+- [3. Cập nhật DbContext (Infrastructure)](#3-cập-nhật-dbcontext-infrastructure)
+- [4. Migrations & Database](#4-migrations--database)
+- [5. Seed roles và admin user (idempotent)](#5-seed-roles-và-admin-user-idempotent)
+- [6. Register / Login (ví dụ)](#6-register--login-ví-dụ)
+- [7. Test nhanh](#7-test-nhanh)
+- [8. Lỗi thường gặp & cách xử lý](#8-lỗi-thường-gặp--cách-xử-lý)
+- [Next steps & tham chiếu](#next-steps--tham-chiếu)
+- [Appendices / Sequence diagrams](#appendices--sequence-diagrams)
 
-﻿# ASP.NET Identity - Hướng Dẫn Thực Hành (Clean Architecture + Scaffold DB)
+---
+
 ## Giới thiệu
-ASP.NET Identity là hệ thống quản lý người dùng tích hợp sẵn trong ASP.NET Core, hỗ trợ:
-- Đăng ký / Đăng nhập
-- Quản lý vai trò (Role) và quyền (Claim)
-- Bảo mật mật khẩu, xác thực hai bước (2FA)
-- Lưu trữ thông tin người dùng qua Entity Framework Core
 
-Tài liệu này hướng dẫn triển khai ASP.NET Identity trong dự án **Clean Architecture** đã có sẵn cấu trúc và entity từ **scaffolding DB**.
-## Kiến trúc tổng thể
-## Các Layer
-| Layer | Nhiệm vụ | Ví dụ |
-|-------|----------|-------|
-| **Domain** | Entity thuần (POCO), interface nghiệp vụ | `Course.cs`, `ICourseRepository.cs` |
-| **Application** | Use case, service, DTO, validation | `CreateCourseHandler.cs` |
-| **Infrastructure** | DbContext, EF mapping, repository implementation, Identity config | `ApplicationDbContext.cs`, `CourseRepository.cs` |
-| **Presentation** | Controller, API endpoint, Razor Pages | `CourseController.cs` |
-## Nguyên tắc phụ thuộc
-- **Presentation** → **Application** → **Domain**
-- **Infrastructure** triển khai interface từ **Domain**, được inject vào **Application**
-## Sơ đồ luồng xử lý
+Tài liệu này tóm tắt các bước cần thiết để tích hợp ASP.NET Core Identity vào codebase LmsMini (Clean Architecture). Nội dung phù hợp với mục tiêu Sprint 2: đăng ký Identity trong Program.cs, tạo migration, seed roles, và tạo skeleton Register/Login để kiểm thử.
 
-[UI / Client] ↓ [Controller / API Endpoint] (Presentation Layer) ↓ [Service / Handler / Use Case] (Application Layer) ↓ [Repository Interface] (Domain Layer) ↓ [Repository Implementation + DbContext] (Infrastructure Layer) ↓ [Database]
-## Tích hợp ASP.NET Identity
-## Cấu hình trong Program.cs
+## Yêu cầu trước khi bắt đầu
+
+- .NET 9 SDK.
+- Project structure: LmsMini.Api, LmsMini.Application, LmsMini.Domain, LmsMini.Infrastructure.
+- Chuỗi kết nối (DefaultConnection) đã cấu hình trong appsettings hoặc user-secrets.
+- Lưu ý: repo hiện có entity scaffolded `AspNetUser` tại `LmsMini.Domain/Entities/Identity/AspNetUser.cs` (sử dụng Guid PK). Nếu đang dùng database-first (scaffold), cân nhắc mapping thay vì tạo migration trùng lặp.
+
+## Tổng quan (nhiệm vụ chính)
+
+1. Đăng ký Identity trong Program.cs.
+2. Quyết định model user: map tới scaffolded AspNetUser hoặc tạo ApplicationUser : IdentityUser<Guid> và map bảng.
+3. Cập nhật DbContext để kế thừa IdentityDbContext.
+4. Tạo migration (nếu áp dụng) và apply.
+5. Seed roles (Admin/Instructor/Learner) idempotent.
+6. Tạo minimal Register/Login endpoints để kiểm tra.
+
+## Mapping: Identity ↔ Clean Architecture
+
+Để rõ ràng cho team, dưới đây là bảng mapping giữa các thành phần Identity và vị trí/điểm đăng ký trong kiến trúc Clean Architecture của repo.
+
+| Thành phần Identity | Thuộc layer | Vị trí / Ghi chú (file/đăng ký) |
+|---|---|---|
+| ApplicationUser / AspNetUser | Domain | LmsMini.Domain/Entities — nếu scaffolded dùng `AspNetUser` (Guid Id); nếu code-first tạo `ApplicationUser : IdentityUser<Guid>` và map tên bảng nếu cần. |
+| LmsDbContext (IdentityDbContext) | Infrastructure | LmsMini.Infrastructure/Persistence (LmsDbContext). Đăng ký DbContext trong Program.cs với AddDbContext<LmsDbContext>(). |
+| UserManager<TUser>, SignInManager<TUser>, RoleManager<TRole> | Infrastructure (DI) | Được đăng ký khi gọi AddDefaultIdentity/AddIdentity trong Program.cs. Không cần AddScoped thủ công. |
+| AccountController (endpoints) | Presentation | LmsMini.Api/Controllers — sử dụng UserManager/SignInManager; controller nằm ở presentation layer và gọi Application layer hoặc handlers. |
+| JwtService (token service) | Infrastructure/Services | Nếu dùng JWT, implement trong LmsMini.Infrastructure/Services và đăng ký trong Program.cs (AddSingleton/AddScoped). |
+| RoleSeeder / Seed runner | Infrastructure (khởi động) | Snippet gọi trong Program.cs (CreateScope). Đảm bảo idempotent. |
+| EF Migrations | Infrastructure project | Migrations tạo trong LmsMini.Infrastructure; chạy với dotnet ef -p LmsMini.Infrastructure -s LmsMini.Api. |
+
+Ghi chú ngắn:
+- Nếu dự án dùng database-first (scaffold), tránh tạo migration trùng; thay vào đó map các lớp Domain tới bảng đã có.
+- Đăng ký Identity và Authentication (JWT) luôn nằm trong Program.cs của project Presentation (LmsMini.Api) để khởi tạo middleware và DI.
+
+## 1. Đăng ký Identity trong Program.cs
+
+Thêm dịch vụ Identity và EntityFramework stores. Ví dụ:
 
 ```csharp
+// using Microsoft.AspNetCore.Identity;
+// using LmsMini.Domain.Entities.Identity; // ApplicationUser hoặc mapping class
+// using LmsMini.Infrastructure.Persistence; // LmsDbContext
+
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
-    options.SignIn.RequireConfirmedAccount = false)
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+{
+    options.SignIn.RequireConfirmedAccount = false;
+    // cấu hình Password/Lockout nếu cần
+})
+.AddRoles<IdentityRole<Guid>>()
+.AddEntityFrameworkStores<LmsDbContext>();
 
-// Cấu hình dịch vụ Identity
-builder.Services.AddScoped<UserManager<ApplicationUser>>();
-builder.Services.AddScoped<SignInManager<ApplicationUser>>();
-builder.Services.AddScoped<RoleManager<IdentityRole>>();
+// NOTE: UserManager/SignInManager/RoleManager được đăng ký bởi Identity; không cần AddScoped thủ công.
 ```
 
-ApplicationUser kế thừa IdentityUser để mở rộng thông tin người dùng.
-## Tạo lớp Application User (Domain Layer)
+Nếu dùng JWT, cấu hình Authentication/JwtBearer tiếp sau bước này (signing key từ user-secrets).
+
+## 2. ApplicationUser / mapping (Domain)
+
+Hai lựa chọn:
+
+- Nếu muốn dùng Identity types: tạo ApplicationUser kế thừa IdentityUser<Guid>.
+
 ```csharp
+public class ApplicationUser : IdentityUser<Guid>
 {
-    public string FullName { get; set; }
+    public string? FullName { get; set; }
 }
 ```
-### 3 Cập nhật`ApplicationDbContext`(Infrastructure Layer)
+
+- Nếu đã scaffold bảng AspNetUsers (database-first) và có lớp `AspNetUser` trong Domain, phương án an toàn hơn là map `ApplicationUser` hoặc cấu hình Identity để sử dụng lớp scaffolded. Trong trường hợp này, đừng tạo migration mới trừ khi bạn thực sự chuyển sang code-first.
+
+Ghi chú: repository hiện có `LmsMini.Domain.Entities.AspNetUser` (Guid Id). Document phải tương ứng với chiến lược của team.
+
+## 3. Cập nhật DbContext (Infrastructure)
+
+DbContext nên kế thừa IdentityDbContext nếu bạn dùng Identity với EF stores. Ví dụ:
+
 ```csharp
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+public class LmsDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
+{
+    public LmsDbContext(DbContextOptions<LmsDbContext> options)
+        : base(options) { }
+
+    public DbSet<Course> Courses { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options) { }
-
-        public DbSet<Course> Courses { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder builder)
-        {
-            base.OnModelCreating(builder);
-            // Fluent API config cho entity khác
-        }
+        base.OnModelCreating(builder);
+        // cấu hình Fluent API cho entity nghiệp vụ, RowVersion, global filters...
     }
-   ```
-## Migration & Database
-------------------------
+}
+```
+
+Nếu dùng scaffolded AspNetUser/AspNetRole, bạn có thể giữ lớp DbContext scaffolded và chỉ gọi base.OnModelCreating(builder) để đảm bảo mapping.
+
+## 4. Migrations & Database
+
+Nếu dự án sử dụng code-first cho Identity, tạo migration như sau từ solution root:
+
 ```bash
-dotnet ef migrations add InitialIdentity
-dotnet ef database update
+dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api
+dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
 ```
-**Kết quả**: DB có các bảng`AspNetUsers`,`AspNetRoles`,`AspNetUserRoles`, … cùng với bảng nghiệp vụ scaffold từ DB.
 
-## Thực hành các chức năng cơ bản
-## Đăng ký người dùng (Presentation Layer)
-    [HttpPost]
-    public async Task<IActionResult> Register(RegisterRequest request)
+Nếu bạn đang dùng database-first (scaffold), không tạo migration trùng lặp — thay vào đó điều chỉnh mapping hoặc cập nhật scaffold.
+
+## 5. Seed roles và admin user (idempotent)
+
+Ví dụ snippet gọi tại khởi động (Program.cs) — chạy trong scope:
+
+```csharp
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+    string[] roles = new[] { "Admin", "Instructor", "Learner" };
+    foreach (var r in roles)
     {
-        var user = new ApplicationUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            FullName = request.FullName
-        };
+        if (!await roleManager.RoleExistsAsync(r))
+            await roleManager.CreateAsync(new IdentityRole<Guid>(r));
+    }
 
+    // (Option) seed admin user idempotent: check by email, create with strong password and AddToRoleAsync
+}
+```
+
+## 6. Register / Login (ví dụ)
+
+Minimal AccountController sample (Presentation layer). Đây là ví dụ để kiểm thử end-to-end — trong production nên dùng MediatR/handlers và validation.
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class AccountController : ControllerBase
+{
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
+
+    public AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+    {
+        _userManager = userManager;
+        _signInManager = signInManager;
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        var user = new ApplicationUser { UserName = request.Email, Email = request.Email, FullName = request.FullName };
         var result = await _userManager.CreateAsync(user, request.Password);
+        if (!result.Succeeded) return BadRequest(result.Errors);
 
-        if (result.Succeeded)
+        // optional: assign role
+        if (!string.IsNullOrWhiteSpace(request.Role))
         {
-            await _signInManager.SignInAsync(user, isPersistent: false);
-            return Ok("Đăng ký thành công");
+            // ensure role exists and add to role (in this sample assume RoleManager available)
         }
 
-        return BadRequest(result.Errors);
+        await _signIn_manager.SignInAsync(user, isPersistent: false);
+        return Ok(new { message = "Đăng ký thành công" });
     }
-## Đăng nhập
-```csharp
-public async Task<IActionResult> Login(LoginRequest request)
-{
-    var result = await _signInManager.PasswordSignInAsync(
-        request.Email, request.Password, false, false);
-        if (result.Succeeded)
-            return Ok("Đăng nhập thành công");
-        return Unauthorized("Sai thông tin đăng nhập");
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        var result = await _signInManager.PasswordSignInAsync(request.Email, request.Password, request.RememberMe, lockoutOnFailure: false);
+        if (!result.Succeeded) return Unauthorized(new { message = "Sai thông tin đăng nhập" });
+        return Ok(new { message = "Đăng nhập thành công" });
+    }
 }
 ```
-### 3 Tạo Role và gán cho User```csharp
-    public async Task<IActionResult> CreateRole(string roleName)
-    {
-        if (!await _roleManager.RoleExistsAsync(roleName))
-            await _roleManager.CreateAsync(new IdentityRole(roleName));
 
-        return Ok();
-    }
+DTOs:
 
-    public async Task<IActionResult> AddUserToRole(string email, string roleName)
-    {
-        var user = await _userManager.FindByEmailAsync(email);
-        if (user != null)
-            await _userManager.AddToRoleAsync(user, roleName);
-
-        return Ok();
-    }
-## Phân quyền trong Controller
--------------------------------
 ```csharp
-[Authorize(Roles = "Admin")]
-[HttpGet("secret")]
-public IActionResult SecretArea()
-{
-    return Ok("Chỉ Admin mới thấy được");
-}
+public class RegisterRequest { public string Email { get; set; } = string.Empty; public string FullName { get; set; } = string.Empty; public string Password { get; set; } = string.Empty; public string? Role { get; set; } }
+public class LoginRequest { public string Email { get; set; } = string.Empty; public string Password { get; set; } = string.Empty; public bool RememberMe { get; set; } = false; }
 ```
-## Test nhanh
-## Swagger / Postman
 
-*   Gọi`POST /api/account/register`→ tạo user
+Ghi chú: sửa _signIn_manager -> _signInManager nếu cần; ví dụ trên giữ cấu trúc logic, bạn có thể chuyển vào Application Layer (handlers) theo CQRS.
 
-*   Gọi`POST /api/account/login`→ nhận token hoặc cookie
+## 7. Test nhanh
 
-*   Gọi API có`[Authorize]`để kiểm tra phân quyền
-## Razor Page mặc định
+- Sau khi khởi động: sử dụng Swagger/Postman gọi POST /api/account/register và POST /api/account/login.
+- Kiểm tra bảng AspNetUsers, AspNetRoles, AspNetUserRoles trong DB để xác nhận dữ liệu.
 
-*   Truy cập`/Identity/Account/Register`và`/Identity/Account/Login`## Lỗi thường gặp & cách xử lý
--------------------------------
+## 8. Lỗi thường gặp & cách xử lý
 
-Lỗi
+- No database provider has been configured: chưa cấu hình UseSqlServer/Db provider trong Program.cs hoặc connection string sai.
+- Password does not meet requirements: điều chỉnh PasswordOptions trong AddDefaultIdentity hoặc dùng mật khẩu đủ mạnh.
+- Migration trùng lặp khi scaffolded DB: nếu DB đã có bảng AspNet*, tránh tạo migration trùng; sử dụng mapping thay vì code-first migration.
 
-Nguyên nhân
+## Next steps & tham chiếu
 
-Cách xử lý`No database provider has been configured`Chưa cấu hình connection string
+- Checklist Sprint 2 (ngắn):
+  - Đăng ký Identity trong Program.cs.
+  - Tạo migration Init_Identity (nếu code-first).
+  - Seed roles + admin.
+  - Tạo minimal Register/Login endpoints và unit tests.
+  - Tạo JwtService skeleton nếu dùng JWT.
 
-Thêm`UseSqlServer`hoặc provider khác trong`Program.cs``Password does not meet requirements`Mật khẩu không đủ mạnh
+- Tham chiếu nội bộ: docs/architecture/CleanArchitecture.md, docs/sprints/Sprint2_2025-09-15_to_2025-09-28.md
 
-Cấu hình`Password`options trong`AddDefaultIdentity`Ghi đè file Identity khi scaffold DB
+## Appendices / Sequence diagrams
 
-Scaffold vào thư mục chứa Identity
+Below are sequence diagrams and PlantUML sources for common Identity flows used in this guide. You can copy the PlantUML blocks into a PlantUML renderer to visualize them.
 
-Dùng`--output-dir`và`--context-dir`để tách riêng
-## Liên kết tới Clean Architecture
-------------------------------------
+### Luồng Đăng ký (Register) — Plain text
 
-*   **Domain**:`ApplicationUser.cs`,`Course.cs`,`ICourseRepository.cs`*   **Application**:`CreateCourseHandler.cs`,`RegisterHandler.cs`*   **Infrastructure**:`ApplicationDbContext.cs`,`CourseRepository.cs`*   **Presentation**:`AccountController.cs`,`CourseController.cs`## Tài liệu tham khảo
------------------------
-
-*   Microsoft Docs - ASP.NET Core Identity
-
-*   Entity Framework Core
-
-*   Clean Architecture pattern
-## Sơ đồ Sequence chi tiết
-## Luồng Đăng ký (Register)
+```plaintext
 User
-
-1. Gửi yêu cầu đăng ký (email, password, fullname)
+  |
+  | 1. POST /api/account/register (email, password, fullname)
   v
-[Controller: AccountController]
-
-2. Gọi Application Layer (RegisterHandler / Service)
+[AccountController]
+  |
+  | 2. Controller -> Application (RegisterHandler) : RegisterCommand
   v
 [Application Layer]
-
-3. Tạo đối tượng ApplicationUser
-4. Gọi UserManager.CreateAsync(user, password)
+  |
+  | 3. RegisterHandler -> Infrastructure : UserManager.CreateAsync(user, password)
   v
-[Infrastructure: Identity + ApplicationDbContext]
-
-5. Lưu user vào bảng AspNetUsers
+[Infrastructure: Identity + LmsDbContext]
+  |
+  | 4. EF Core -> Database : INSERT AspNetUsers
   v
 [Database]
-
-6. Trả kết quả thành công
+  |
+  | 5. Database -> Infrastructure : Success
   ^
 [Infrastructure]
-
-7. SignInManager.SignInAsync(user)
+  |
+  | 6. If success -> SignInManager.SignInAsync(user)
   v
-[Application Layer]
-
-8. Trả phản hồi "Đăng ký thành công"
-  v
-[Controller]
-
-9. Gửi phản hồi HTTP 200 OK
-  v
-User
-## Luồng Đăng nhập (Login)
-```plantext
-User
-|
-| 1. Gửi yêu cầu đăng nhập (email, password)
-  v
-[Controller: AccountController]
-|
-| 2. Gọi Application Layer (LoginHandler / Service)
-  v
-[Application Layer]
-|
-| 3. Gọi SignInManager.PasswordSignInAsync(email, password)
-  v
-[Infrastructure: Identity + ApplicationDbContext]
-|
-| 4. Kiểm tra thông tin trong bảng AspNetUsers
-  v
-[Database]
-|
-| 5. Trả kết quả xác thực (thành công/thất bại)
-  ^
 [Infrastructure]
-|
-| 6. Nếu thành công → tạo cookie/token
+  |
+  | 7. Handler -> Controller : Result
   v
-[Application Layer]
-|
-| 7. Trả phản hồi "Đăng nhập thành công" hoặc lỗi
-  v
-[Controller]
-|
-| 8. Gửi phản hồi HTTP về cho client
-  v
-User
+[AccountController]
+  |
+  | 8. Controller -> User : HTTP 200 OK (Đăng ký thành công)
 ```
-💡 **Ghi chú**:
 
-*   Trong Clean Architecture:
+### Luồng Đăng ký (Register) — PlantUML
 
-*   **Controller** nằm ở **Presentation Layer**
-
-*   **Handler/Service** nằm ở **Application Layer**
-
-*   **UserManager**, **SignInManager**, **DbContext** nằm ở **Infrastructure Layer**
-
-*   **Entity ApplicationUser** nằm ở **Domain Layer**
-
-*   Bạn có thể dùng PlantUML để vẽ sơ đồ này đẹp hơn:
 ```plantuml
 @startuml
 actor User
-User -> Controller : POST /register
+User -> Controller : POST /api/account/register
 Controller -> Application : RegisterHandler(request)
 Application -> Infrastructure : UserManager.CreateAsync(user, pwd)
 Infrastructure -> Database : INSERT AspNetUsers
@@ -297,283 +282,95 @@ Application --> Controller : "Đăng ký thành công"
 Controller --> User : HTTP 200 OK
 @enduml
 ```
-## Sơ đồ Sequence - Chức năng Phân quyền (Authorize)
-## Luồng kiểm tra quyền truy cập với
-```[Controller Action có [Authorize(Roles="Admin")]]```
-2. Middleware Authentication (ASP.NET Core)```[Authentication Handler]```
-3. Đọc cookie/token từ request
-4. Xác thực danh tính (UserManager / SignInManager)```[Infrastructure: Identity + ApplicationDbContext]```
-5. Lấy thông tin user + roles từ DB (AspNetUsers, AspNetUserRoles, AspNetRoles)```[Database]```
-6. Trả thông tin user và roles```[Infrastructure]```
-7. Middleware Authorization kiểm tra role "Admin"
-- Nếu có: cho phép vào action
-- Nếu không: trả 403 Forbidden```[Controller Action]```
-8. Xử lý logic và trả kết quả```User```
-### 2 Phiên bản PlantUML
-```plantuml
-
-@startuml
-actor User
-User -> Controller : HTTP GET /secret
-Controller -> AuthMiddleware : Check [Authorize(Roles="Admin")]
-AuthMiddleware -> AuthHandler : Authenticate request
-AuthHandler -> Infrastructure : Get user + roles from DB
-Infrastructure -> Database : SELECT AspNetUsers, AspNetUserRoles, AspNetRoles
-Database --> Infrastructure : User + Roles
-Infrastructure --> AuthHandler : Authenticated principal
-AuthHandler -> AuthzMiddleware : Pass principal
-AuthzMiddleware -> AuthzMiddleware : Check role "Admin"
-alt Has Role
-    AuthzMiddleware --> Controller : Access granted
-    Controller -> User : HTTP 200 OK (Secret content)
-else No Role
-    AuthzMiddleware -> User : HTTP 403 Forbidden
-end
-@enduml
-```
-💡 **Ghi chú**:
-
-*   **Authentication**: Xác định bạn là ai (dựa trên cookie/token).
-
-*   **Authorization**: Xác định bạn có quyền gì (dựa trên Role/Claim).
-
-*   Trong Clean Architecture:
-
-*   Middleware và Attribute`[Authorize]`nằm ở **Presentation Layer**.
-
-*`UserManager`,`SignInManager`và truy vấn DB nằm ở **Infrastructure Layer**.
-
-*   Quy tắc phân quyền (ví dụ role nào được phép) có thể được định nghĩa ở **Application Layer** nếu muốn tách biệt.``````
-
-## Ví dụ mã nguồn đầy đủ (AccountController, DTOs, Handlers)
-
-### AccountController.cs (Presentation Layer)
-```csharp
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-
-namespace YourProject.Presentation.Controllers
-{
-    [ApiController]
-    [Route("api/[controller]")]
-    public class AccountController : ControllerBase
-    {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
-
-        public AccountController(
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
-            RoleManager<IdentityRole> roleManager)
-        {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _roleManager = roleManager;
-        }
-
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            var user = new ApplicationUser
-            {
-                UserName = request.Email,
-                Email = request.Email,
-                FullName = request.FullName
-            };
-
-            var result = await _userManager.CreateAsync(user, request.Password);
-
-            if (!result.Succeeded)
-                return BadRequest(result.Errors);
-
-            // Optionally add default role
-            if (!string.IsNullOrWhiteSpace(request.Role))
-            {
-                if (!await _roleManager.RoleExistsAsync(request.Role))
-                    await _roleManager.CreateAsync(new IdentityRole(request.Role));
-
-                await _userManager.AddToRoleAsync(user, request.Role);
-            }
-
-            await _signInManager.SignInAsync(user, isPersistent: false);
-            return Ok(new { message = "Đăng ký thành công" });
-        }
-
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            var result = await _signInManager.PasswordSignInAsync(
-                request.Email, request.Password, request.RememberMe, lockoutOnFailure: false);
-
-            if (result.Succeeded)
-                return Ok(new { message = "Đăng nhập thành công" });
-
-            return Unauthorized(new { message = "Sai thông tin đăng nhập" });
-        }
-
-        [Authorize(Roles = "Admin")]
-        [HttpGet("secret")]
-        public IActionResult SecretArea()
-        {
-            return Ok("Chỉ Admin mới thấy được");
-        }
-
-        [HttpPost("role/create")]
-        public async Task<IActionResult> CreateRole([FromBody] string roleName)
-        {
-            if (string.IsNullOrWhiteSpace(roleName)) return BadRequest("Role name is required.");
-
-            if (!await _roleManager.RoleExistsAsync(roleName))
-                await _roleManager.CreateAsync(new IdentityRole(roleName));
-
-            return Ok(new { message = "Role created" });
-        }
-
-        [HttpPost("role/add")]
-        public async Task<IActionResult> AddUserToRole([FromBody] AddUserRoleRequest request)
-        {
-            var user = await _userManager.FindByEmailAsync(request.Email);
-            if (user == null) return NotFound("User not found.");
-
-            if (!await _roleManager.RoleExistsAsync(request.Role))
-                await _roleManager.CreateAsync(new IdentityRole(request.Role));
-
-            var result = await _userManager.AddToRoleAsync(user, request.Role);
-            if (!result.Succeeded) return BadRequest(result.Errors);
-
-            return Ok(new { message = "Role assigned" });
-        }
-    }
-}
-```
-
-### DTOs (Requests)
-```csharp
-public class RegisterRequest
-{
-    public string Email { get; set; }
-    public string FullName { get; set; }
-    public string Password { get; set; }
-    // Optional default role to assign at registration
-    public string Role { get; set; }
-}
-
-public class LoginRequest
-{
-    public string Email { get; set; }
-    public string Password { get; set; }
-    public bool RememberMe { get; set; } = false;
-}
-
-public class AddUserRoleRequest
-{
-    public string Email { get; set; }
-    public string Role { get; set; }
-}
-```
-
-### Handlers / Services (Application Layer) — ví dụ kiểu MediatR / service pattern
-
-#### RegisterHandler.cs
-```csharp
-public class RegisterCommand
-{
-    public RegisterRequest Request { get; set; }
-}
-
-public class RegisterHandler // : IRequestHandler<RegisterCommand, Result>
-{
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
-    // inject others (e.g., ILogger, IUnitOfWork) as needed
-
-    public RegisterHandler(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
-    {
-        _userManager = userManager;
-        _roleManager = roleManager;
-    }
-
-    public async Task<Result> Handle(RegisterCommand command)
-    {
-        var req = command.Request;
-        var user = new ApplicationUser
-        {
-            UserName = req.Email,
-            Email = req.Email,
-            FullName = req.FullName
-        };
-
-        var createRes = await _userManager.CreateAsync(user, req.Password);
-        if (!createRes.Succeeded) return Result.Failure(createRes.Errors.Select(e => e.Description));
-
-        if (!string.IsNullOrWhiteSpace(req.Role))
-        {
-            if (!await _role_manager.RoleExistsAsync(req.Role))
-                await _role_manager.CreateAsync(new IdentityRole(req.Role));
-
-            await _user_manager.AddToRoleAsync(user, req.Role);
-        }
-
-        return Result.Success();
-    }
-}
-```
-
-> **Ghi chú:** `Result` là một lớp tiện ích đại diện cho kết quả (thành công/thất bại). Bạn có thể thay bằng `Unit` hoặc `IActionResult` tùy pattern.
 
 ---
 
-## Sơ đồ Sequence bổ sung — Phân quyền (Authorize)
-
-### Luồng kiểm tra quyền truy cập với `[Authorize(Roles = "Admin")]`
+### Luồng Đăng nhập (Login) — Plain text
 
 ```plaintext
 User
   |
-  | 1. Gửi request tới endpoint yêu cầu quyền Admin
+  | 1. POST /api/account/login (email, password)
   v
-[Controller Action có [Authorize(Roles="Admin")]]
+[AccountController]
   |
-  | 2. Middleware Authentication (ASP.NET Core)
+  | 2. Controller -> Application (LoginHandler) : LoginCommand
   v
-[Authentication Handler]
+[Application Layer]
   |
-  | 3. Đọc cookie/token từ request
-  | 4. Xác thực danh tính (UserManager / SignInManager)
+  | 3. LoginHandler -> Infrastructure : SignInManager.PasswordSignInAsync(email, password)
   v
-[Infrastructure: Identity + ApplicationDbContext]
+[Infrastructure: Identity + LmsDbContext]
   |
-  | 5. Lấy thông tin user + roles từ DB (AspNetUsers, AspNetUserRoles, AspNetRoles)
+  | 4. EF Core -> Database : SELECT AspNetUsers WHERE Email=..
   v
 [Database]
   |
-  | 6. Trả thông tin user và roles
-  ^ 
+  | 5. Database -> Infrastructure : User + Roles
+  ^
 [Infrastructure]
   |
-  | 7. Middleware Authorization kiểm tra role "Admin"
-  |    - Nếu có: cho phép vào action
-  |    - Nếu không: trả 403 Forbidden
-  v
-[Controller Action]
+  | 6. Infrastructure -> Application : SignInResult
   |
-  | 8. Xử lý logic và trả kết quả
+  | 7. Application -> Controller : Return token/cookie or Unauthorized
   v
-User
+Controller -> User : HTTP 200 OK (or 401)
 ```
 
-### PlantUML — Kiểm tra phân quyền (Authorize)
+### Luồng Đăng nhập (Login) — PlantUML
+
 ```plantuml
 @startuml
 actor User
-User -> Controller : HTTP GET /secret
+User -> Controller : POST /api/account/login
+Controller -> Application : LoginHandler(request)
+Application -> Infrastructure : SignInManager.PasswordSignInAsync(email, password)
+Infrastructure -> Database : SELECT AspNetUsers
+Database --> Infrastructure : User
+Infrastructure --> Application : SignInResult
+Application --> Controller : "Đăng nhập thành công"/"Unauthorized"
+Controller --> User : HTTP response
+@enduml
+```
+
+---
+
+### Luồng kiểm tra phân quyền (Authorize - Roles)
+
+```plaintext
+User
+  |
+  | 1. GET /api/secure (requires [Authorize(Roles="Admin")])
+  v
+[Web Server / Middleware]
+  |
+  | 2. Authentication middleware reads token/cookie and validates
+  v
+[Auth Handler]
+  |
+  | 3. Auth -> Infrastructure : Load user + roles (AspNetUsers, AspNetUserRoles, AspNetRoles)
+  v
+[Infrastructure]
+  |
+  | 4. Infrastructure -> Database : SELECT user roles
+  v
+[Database]
+  |
+  | 5. Database -> Infrastructure : roles
+  ^
+[Infrastructure]
+  |
+  | 6. Authorization middleware checks role "Admin"
+  |   - If has role: continue to Controller
+  |   - Else: return 403 Forbidden
+```
+
+### Luồng kiểm tra phân quyền (Authorize) — PlantUML
+
+```plantuml
+@startuml
+actor User
+User -> Controller : HTTP GET /secure
 Controller -> AuthMiddleware : Check [Authorize(Roles="Admin")]
 AuthMiddleware -> AuthHandler : Authenticate request
 AuthHandler -> Infrastructure : Get user + roles from DB
@@ -592,4 +389,6 @@ end
 ```
 
 ---
+
+If you want additional diagrams or to split PlantUML into separate files under docs/appendices/plantuml/, tell me and I will add them.
 
