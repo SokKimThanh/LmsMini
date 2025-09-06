@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using LmsMini.Domain.Entities.Identity;
+﻿using LmsMini.Domain.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace LmsMini.Domain.Entities;
