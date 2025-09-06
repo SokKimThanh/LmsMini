@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LmsMini.Domain.Entities.Identity;
+using System;
 using System.Collections.Generic;
 
 namespace LmsMini.Domain.Entities;

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace LmsMini.Domain.Entities;
+namespace LmsMini.Domain.Entities.Identity;
 
 public partial class AspNetUser
 {
@@ -35,6 +35,12 @@ public partial class AspNetUser
 
     public int AccessFailedCount { get; set; }
 
+    public virtual ICollection<AspNetUserClaim> AspNetUserClaims { get; set; } = new List<AspNetUserClaim>();
+
+    public virtual ICollection<AspNetUserLogin> AspNetUserLogins { get; set; } = new List<AspNetUserLogin>();
+
+    public virtual ICollection<AspNetUserToken> AspNetUserTokens { get; set; } = new List<AspNetUserToken>();
+
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 
     public virtual ICollection<Course> Courses { get; set; } = new List<Course>();
@@ -50,4 +56,6 @@ public partial class AspNetUser
     public virtual ICollection<Progress> Progresses { get; set; } = new List<Progress>();
 
     public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
+
+    public virtual ICollection<AspNetRole> Roles { get; set; } = new List<AspNetRole>();
 }
