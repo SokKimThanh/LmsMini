@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace LmsMini.Api.docs.lessons.interfaces.examples
+namespace LmsMini.Api.docs.lessons.guides.interfaces.examples
 {
     // public interface: các phương thức mặc định là public
     public interface IGreeter
