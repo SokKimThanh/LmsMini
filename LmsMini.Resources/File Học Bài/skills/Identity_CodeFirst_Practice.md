@@ -66,7 +66,3 @@ using (var scope = app.Services.CreateScope())
 - dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
 - dotnet ef migrations add Initial -p LmsMini.Infrastructure -s LmsMini.Api
 - dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
-
----
-
-Nếu muốn, tôi có thể thêm checklist CI (GitHub Actions) hoặc đoạn code migration script để tự động kiểm tra thay đổi vào AspNet* trước khi merge.
