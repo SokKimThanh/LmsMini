@@ -1,63 +1,72 @@
-﻿Identity — Lộ trình thực hành (Code‑First) — LmsMini
+﻿# Identity - Lộ Trình Thực Hành (Code-First) - LmsMini
 
-Tổng quan ngắn
-- Nếu mục tiêu là dùng ASP.NET Core Identity chuẩn thì KHÔNG cần scaffold toàn bộ các bảng AspNet*.
-- Thư viện Identity (IdentityDbContext, IdentityUser/IdentityRole, UserManager/RoleManager) đã cung cấp mapping và logic cần thiết; bằng cách dùng code‑first bạn giữ cấu hình đơn giản và tránh xung đột khi scaffold lại.
+## Tổng Quan
+- Sử dụng ASP.NET Core Identity theo Code-First giúp đơn giản hóa cấu hình và tránh xung đột với các lớp POCO scaffolded.
+- Identity bản thân đã cung cấp mapping mặc định cho AspNet* table. Nếu không cần thiết, không nên scaffold các bảng AspNet* từ database.
 
-Tại sao tránh scaffold AspNet* (DB‑first) trừ khi bắt buộc
-- DB‑first làm tăng độ phức tạp: scaffold tạo nhiều POCOs trùng với types của Identity → dễ xảy ra duplicate table mapping, lỗi EF (table mapped twice), hoặc phải liên tục chỉnh các lớp để kế thừa Identity types.
-- Khi DBA đã tạo bảng theo cách khác, merge schema phức tạp và scaffold có thể ghi đè hoặc loại bỏ thuộc tính tuỳ chỉnh.
-- Nếu không bắt buộc (DB đã chuẩn theo Identity) thì prefer code‑first để đơn giản hoá triển khai.
+## Tại Sao Không Nên Scaffold AspNet* (DB-first) Nếu Không Bắt Buộc
+- Scaffold tạo nhiều POCO trùng lặp với các Identity types, dẫn đến:
+  - Duplicate mapping -> lỗi EF: "table mapped twice".
+  - Công tác hoán đổi code để kế thừa từ Identity types.
+- Không để kiểm soát schema thông qua code sẽ làm phức tạp việc hợp nhất với DBA.
 
-Code‑First — các bước thực hành (thứ tự rõ ràng)
-1. Thêm package cần thiết (project Infrastructure):
+## Lỗi Chính Hay Gặp: "table mapped twice"
+- Xảy ra khi có 2 CLR entity khác nhau được map cùng 1 bảng mà không có quan hệ (inheritance hoặc FK chung).
+- Ví dụ: bạn có class AspNetRoleClaim (POCO) và IdentityRoleClaim<Guid> cùng map vào AspNetRoleClaims.
+- Cách giải: sử dụng cùng 1 CLR type cho Identity role claim hoặc xóa mapping thủ công cho entity trùng lặp.
+
+## Code-First: Các Bước Thực Hiện (Chi Tiết)
+1. Cài đặt package (trong project Infrastructure):
    - Microsoft.AspNetCore.Identity.EntityFrameworkCore
    - Microsoft.EntityFrameworkCore.SqlServer
-2. Tạo/điều chỉnh model user/role nếu cần:
-   - Tùy chọn nhẹ: class ApplicationUser : IdentityUser<Guid> { /* navigation only */ }
-   - Tùy chọn role: class ApplicationRole : IdentityRole<Guid> { }
-3. DbContext:
-   - public class LmsDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid> { ... }
-   - Đưa cấu hình nghiệp vụ (Courses, Modules…) vào OnModelCreating; để mapping Identity mặc định do base.OnModelCreating quản lý.
-4. Program.cs (DI):
-   - builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(opts => { ... })
+2. Định nghĩa model (nếu cần):
+   - class ApplicationUser : IdentityUser<Guid> { /* navigation properties nếu cần */ }
+   - class ApplicationRole : IdentityRole<Guid> { }
+3. Tạo DbContext:
+   - public class LmsDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
+   - Trong OnModelCreating: gọi base.OnModelCreating(modelBuilder) để dùng mapping mặc định của Identity. Add các mapping domain khác ở đây.
+4. Đăng ký Identity trong Program.cs:
+   - builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(opts => { /* options */ })
        .AddEntityFrameworkStores<LmsDbContext>()
        .AddDefaultTokenProviders();
    - Đăng ký DbContext trước khi Build.
-   - app.UseAuthentication(); app.UseAuthorization(); (đặt đúng thứ tự)
-5. Migrations (code‑first):
+   - Gọi app.UseAuthentication(); app.UseAuthorization(); sắp xếp thứ tự đúng.
+5. Tạo và apply migrations:
    - dotnet ef migrations add InitialIdentityAndDomain -p LmsMini.Infrastructure -s LmsMini.Api
-   - dotnet ef database update
-   - Lưu ý: nếu DB‑first bắt buộc cho Identity, DON'T let migrations modify AspNet* (coordinate with DBA).
-6. Seeder roles/users:
-   - Sử dụng RoleManager<ApplicationRole> / UserManager<ApplicationUser> trong scope khi app start để tạo roles/admin (idempotent).
-7. Test end‑to‑end: register/login via Swagger, kiểm tra bảng AspNetUsers/AspNetRoles/AspNetUserRoles.
+   - dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
+   - Nếu DB-first bắt buộc: thao tác với DBA để chặn migrations thay đổi AspNet*.
+6. Seeder roles và admin:
+   - Sử dụng RoleManager<ApplicationRole> và UserManager<ApplicationUser> trong scope khi app start.
+   - Thực hiện idempotent (kiểm tra tồn tại trước khi tạo).
 
-Những điểm cần chú ý (best practices)
-- Tránh UsingEntity<Dictionary<...>> cho AspNetUserRoles nếu dùng IdentityDbContext — Identity đã tạo join entity.
-- Nếu giữ POCO scaffolded, bắt buộc cho chúng kế thừa Identity types để tránh CS0311/duplicate mapping.
-- Tách mapping ổn định vào partial file (OnModelCreatingPartial) nếu vẫn dùng scaffold -> giảm rủi ro khi regen.
-- Trong CI: chặn migration có thay đổi AspNet* nếu DB‑first quản lý Identity.
+## Ví Dụ Seeder (Kiến Nghị)
+```
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+    var roles = new[] { "Admin", "Instructor", "Student" };
+    foreach (var r in roles)
+    {
+        if (!roleManager.RoleExistsAsync(r).GetAwaiter().GetResult())
+        {
+            roleManager.CreateAsync(new ApplicationRole { Name = r }).GetAwaiter().GetResult();
+        }
+    }
+}
+```
 
-Mục riêng: Phức tạp của DB‑First với Identity
-- Khi scaffold từ DB có AspNet* bạn phải:
-  - Đồng bộ CLR types với bảng (tạo lớp kế thừa IdentityUser/IdentityRole/... hoặc điều chỉnh mapping),
-  - Xử lý duplicate mapping (ví dụ IdentityRoleClaim vs AspNetRoleClaim),
-  - Duy trì partial mapping để tránh bị scaffold ghi đè.
-- Kết luận: DB‑first phù hợp khi DBA quản lý schema hoặc bảng có khác biệt lớn; nếu không, code‑first đơn giản và ít lỗi hơn.
+## Best Practices Và Lưu Ý
+- Không tạo POCO mới cho AspNet* nếu có thể kế thừa Identity types.
+- Nếu đã scaffold từ DB: chuyển các POCO để kế thừa IdentityUser/IdentityRole/IdentityRoleClaim... để tránh duplicate mapping.
+- Nếu cần join table tự động, sử dụng cấu hình mặc định Identity cho UserRoles, không dùng UsingEntity<Dictionary<...>> từ ngoài.
+- Tách cấu hình Identity vào partial OnModelCreatingPartial để dễ quản lý nếu cần regen code.
+- Trong CI, chặn migrations thay đổi AspNet* nếu DBA quản lý schema.
 
-Study card (phỏng vấn) — nhớ nhanh
-- Khi dùng Identity, tối thiểu cần: ApplicationUser (IdentityUser<TKey>), LmsDbContext : IdentityDbContext<...>, AddIdentity + AddEntityFrameworkStores in Program.cs, UseAuthentication() before UseAuthorization().
-- Tránh scaffold AspNet* trừ khi bắt buộc; nếu scaffolded thì convert POCO -> inherit Identity types.
-- Nguyên nhân phổ biến lỗi EF: "table mapped twice" → do duplicate mapping (built‑in Identity entity + manual UsingEntity/POCO). Giải pháp: remove manual UsingEntity or use the same Identity CLR types.
-- Seeder roles: dùng RoleManager, luôn làm idempotent.
-
-Bài học rút ra
-- Kinh nghiệm bạn nêu: tạo bảng trước rồi áp Identity dẫn tới mất thuộc tính và phải chỉnh lại — bài học: bắt đầu từ code‑first hoặc chuẩn hoá mapping trước khi scaffold/đổi schema.
-
-Tài liệu tham khảo nhanh (commands)
+## Lệnh Tham Khảo Nhanh
 - dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
 - dotnet ef migrations add Initial -p LmsMini.Infrastructure -s LmsMini.Api
 - dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
 
-File ngắn, dễ thao tác khi học thực hành. Nếu muốn tôi có thể thêm một checklist migration CI (GitHub Action) vào thư mục docs/ops.
+---
+
+Nếu muốn, tôi có thể thêm checklist CI (GitHub Actions) hoặc đoạn code migration script để tự động kiểm tra thay đổi vào AspNet* trước khi merge.
