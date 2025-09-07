@@ -1,0 +1,10 @@
+# Ignore build outputs
+bin/
+obj/
+
+# Ignore user-specific files
+.vs/
+*.user
+
+# Keep the document folders tracked
+# (no patterns here so the folders themselves can be committed)
