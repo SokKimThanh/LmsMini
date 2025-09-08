@@ -1,45 +1,14 @@
-﻿using System;
+﻿
+using Microsoft.AspNetCore.Identity;
+using System;
 using System.Collections.Generic;
 
 namespace LmsMini.Domain.Entities.Identity;
 
-public partial class AspNetUser
+public partial class AspNetUser : IdentityUser<Guid>
 {
-    public Guid Id { get; set; }
-
-    public string UserName { get; set; } = null!;
-
-    public string NormalizedUserName { get; set; } = null!;
-
-    public string? Email { get; set; }
-
-    public string? NormalizedEmail { get; set; }
-
-    public bool EmailConfirmed { get; set; }
-
-    public string? PasswordHash { get; set; }
-
-    public string? SecurityStamp { get; set; }
-
-    public string? ConcurrencyStamp { get; set; }
-
-    public string? PhoneNumber { get; set; }
-
-    public bool PhoneNumberConfirmed { get; set; }
-
-    public bool TwoFactorEnabled { get; set; }
-
-    public DateTimeOffset? LockoutEnd { get; set; }
-
-    public bool LockoutEnabled { get; set; }
-
-    public int AccessFailedCount { get; set; }
-
-    public virtual ICollection<AspNetUserClaim> AspNetUserClaims { get; set; } = new List<AspNetUserClaim>();
-
-    public virtual ICollection<AspNetUserLogin> AspNetUserLogins { get; set; } = new List<AspNetUserLogin>();
-
-    public virtual ICollection<AspNetUserToken> AspNetUserTokens { get; set; } = new List<AspNetUserToken>();
+    // Keep navigation collections (scaffolded)
+    
 
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
 
@@ -56,6 +25,5 @@ public partial class AspNetUser
     public virtual ICollection<Progress> Progresses { get; set; } = new List<Progress>();
 
     public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
-
-    public virtual ICollection<AspNetRole> Roles { get; set; } = new List<AspNetRole>();
+     
 }
