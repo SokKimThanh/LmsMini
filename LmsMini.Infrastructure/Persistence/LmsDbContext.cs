@@ -1,16 +1,21 @@
-﻿using LmsMini.Domain.Entities.Identity;
+﻿using System;
+using System.Collections.Generic;
+using LmsMini.Domain.Entities.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace LmsMini.Domain.Entities;
 
-public partial class LmsDbContext : IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>
+public partial class LmsDbContext : DbContext
 {
     public LmsDbContext(DbContextOptions<LmsDbContext> options)
         : base(options)
     {
     }
+
+    public virtual DbSet<AspNetUser> AspNetUsers { get; set; }
+
     public virtual DbSet<AttemptAnswer> AttemptAnswers { get; set; }
 
     public virtual DbSet<AuditLog> AuditLogs { get; set; }
@@ -41,9 +46,9 @@ public partial class LmsDbContext : IdentityDbContext<AspNetUser, IdentityRole<G
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
+        base.OnModelCreating(modelBuilder); // important: Identity mappings
 
-
+         
 
         modelBuilder.Entity<AspNetUser>(entity =>
         {
@@ -59,10 +64,7 @@ public partial class LmsDbContext : IdentityDbContext<AspNetUser, IdentityRole<G
             entity.Property(e => e.NormalizedUserName).HasMaxLength(256);
             entity.Property(e => e.PhoneNumber).HasMaxLength(50);
             entity.Property(e => e.UserName).HasMaxLength(256);
-
-
         });
-
 
         modelBuilder.Entity<AttemptAnswer>(entity =>
         {
