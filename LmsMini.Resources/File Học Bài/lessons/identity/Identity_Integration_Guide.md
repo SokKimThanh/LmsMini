@@ -175,4 +175,73 @@ public static class RoleSeeder
 
 ---
 
-Ghi chú: nếu bạn muốn, mình có thể tạo file snippets riêng (Program.cs diff, LmsDbContext diff, DesignTimeFactory, RoleSeeder) để bạn copy/paste. Hãy nói "tạo snippets" và mình sẽ tạo các file đó trong thư mục `LmsMini.Resources/Identity/snippets` để bạn dán vào dự án.
+## 8. Các bước còn thiếu (thực hiện ngay / ưu tiên)
+Dưới đây là danh sách bước còn thiếu hoặc cần thực hiện tiếp để hoàn thiện tích hợp Identity — mỗi mục kèm gợi ý thực thi và lệnh/điểm kiểm tra.
+
+1) Tạo Design‑time DbContext Factory
+- Mục đích: EF CLI (dotnet ef) cần có factory để khởi tạo DbContext khi không chạy ứng dụng.
+- Hành động: tạo `LmsMini.Infrastructure/Persistence/LmsDbContextFactory.cs` theo mẫu ở trên.
+- Kiểm tra: `dotnet ef migrations add TestFactory -p LmsMini.Infrastructure -s LmsMini.Api` (sau khi tạo xong, xoá migration thử).
+
+2) Tạo RoleSeeder và Admin Seeder
+- Mục đích: đảm bảo roles tồn tại và có admin mặc định.
+- Hành động: thêm `RoleSeeder` và `AdminSeeder` (dùng UserManager để tạo admin nếu chưa có).
+- Gọi: sau `var app = builder.Build();` gọi `await RoleSeeder.SeedAsync(app.Services); await AdminSeeder.SeedAsync(app.Services);`.
+- Kiểm tra: khởi chạy app và kiểm tra bảng AspNetRoles/AspNetUsers.
+
+3) Thêm AccountController (Register/Login/Confirm/Reset)
+- Mục đích: cung cấp API cho authentication.
+- Hành động: tạo controller mẫu sử dụng UserManager/SignInManager và tạo JWT nếu dùng token.
+- Kiểm tra: đăng ký 1 user, login, nhận token (hoặc cookie nếu dùng Cookie auth).
+
+4) Cấu hình JWT & Swagger
+- Mục đích: API sử dụng token bearer; Swagger có thể thử API bảo mật.
+- Hành động: thêm AddAuthentication/JwtBearer trong Program.cs; thêm cấu hình Jwt: Key, Issuer, Audience trong appsettings.Development.json (hoặc user‑secrets).
+- Kiểm tra: gọi login rồi dùng token ở Swagger Authorize.
+
+5) Email sender cho Confirm/Reset
+- Mục đích: gửi link xác nhận email và reset password.
+- Hành động: cài IEmailSender (stub cho dev, SMTP cho prod) và inject vào AccountController.
+- Kiểm tra: gửi email thử (hoặc log nội dung token vào console trong dev).
+
+6) Loại bỏ/hoàn thiện các lớp scaffolded trùng
+- Mục đích: tránh duplicate mapping (AspNetUserClaim, AspNetRoleClaim, v.v.).
+- Hành động: tìm các file scaffolded `AspNetUserClaim.cs`, `AspNetUserLogin.cs`, `AspNetUserToken.cs`, `AspNetRoleClaim.cs`.
+  - Nếu dùng Identity types built‑in (IdentityUserClaim, ...) → xóa file scaffolded tương ứng.
+  - Nếu giữ scaffolded, đảm bảo không đăng ký mapping trùng trong DbContext.
+- Kiểm tra: `dotnet build` không báo lỗi duplicate entity mapping.
+
+7) Migrations: tạo migration baseline & apply an toàn
+- Mục đích: không ghi đè dữ liệu hiện có.
+- Hành động: review migration SQL (dotnet ef migrations script) trước khi apply.
+- Nếu DB đã có bảng AspNet* và bạn không muốn thay đổi, tạo migration rỗng (Up() {}), hoặc tạo migration chỉ thêm những thay đổi cần thiết.
+
+8) Tests & CI
+- Viết tests cho: register/login flow, role seeding, protected endpoints.
+- Thêm CI check: block PR nếu migration thay đổi AspNet* mà chưa review.
+
+9) Cập nhật entities liên quan
+- Mục đích: mọi navigation property dùng đúng type user.
+- Hành động: tìm toàn cục "AspNetUser" và "ApplicationUser" — chuẩn hóa dùng 1 type.
+- Kiểm tra: build và chạy unit tests.
+
+10) Secrets & cấu hình
+- Lưu JWT key vào user‑secrets hoặc environment variables; không commit vào repo.
+- Thêm sample `appsettings.Development.json` (không chứa secret thật).
+
+---
+
+## 9. Lệnh thường dùng (tóm tắt)
+- Tạo migration:
+  `dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api`
+- Áp dụng migration:
+  `dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api`
+- Chạy app:
+  `dotnet run --project LmsMini.Api`
+- Build toàn bộ solution:
+  `dotnet build`
+
+---
+
+## 10. Kết luận
+Thực hiện theo checklist ở phần 7 và các bước bổ sung ở phần 8 sẽ giúp bạn hoàn thành tích hợp ASP.NET Core Identity an toàn và không gây duplicate mapping. Nếu muốn, tôi có thể tự động tạo các file mẫu (DesignTimeFactory, RoleSeeder, AccountController, JWT config) trong workspace — xác nhận tác vụ mong muốn và tôi sẽ implement và chạy build kiểm tra.
