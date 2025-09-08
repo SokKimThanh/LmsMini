@@ -1,8 +1,4 @@
-﻿using LmsMini.Domain.Entities.Identity;
-using System;
-using System.Collections.Generic;
-
-namespace LmsMini.Domain.Entities;
+﻿namespace LmsMini.Domain.Entities;
 
 public partial class QuizAttempt
 {

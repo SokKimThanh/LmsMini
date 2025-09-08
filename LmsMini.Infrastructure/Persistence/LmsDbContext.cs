@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using LmsMini.Domain.Entities.Identity;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace LmsMini.Domain.Entities;
 
