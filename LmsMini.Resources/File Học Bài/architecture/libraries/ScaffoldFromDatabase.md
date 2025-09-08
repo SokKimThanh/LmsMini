@@ -45,6 +45,11 @@ dotnet ef dbcontext scaffold "Server=.\SQLEXPRESS;Database=LMSMini;Trusted_Conne
 --startup-project ./LmsMini.Api/LmsMini.Api.csproj
 ```
 
+### Lệnh một dòng (dễ copy/paste)
+```bash
+dotnet ef dbcontext scaffold "Server=.\\SQLEXPRESS;Database=LMSMini;Trusted_Connection=True;TrustServerCertificate=True;" Microsoft.EntityFrameworkCore.SqlServer --output-dir ../LmsMini.Domain/Entities --context-dir ../LmsMini.Infrastructure/Persistence --context LmsDbContext --namespace LmsMini.Domain.Entities --use-database-names --no-onconfiguring --project ./LmsMini.Infrastructure/LmsMini.Infrastructure.csproj --startup-project ./LmsMini.Api/LmsMini.Api.csproj
+```
+
 ---
 
 ## 🔍 Giải thích tham số chi tiết
