@@ -1,15 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace LmsMini.Domain.Entities;
 
-public partial class LmsDbContext : DbContext
+public partial class LmsDbContext : IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>
 {
     public LmsDbContext(DbContextOptions<LmsDbContext> options)
         : base(options)
     {
     }
-
-    public virtual DbSet<AspNetUser> AspNetUsers { get; set; }
 
     public virtual DbSet<AttemptAnswer> AttemptAnswers { get; set; }
 
@@ -41,26 +43,19 @@ public partial class LmsDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder); // important: Identity mappings
+        // Let Identity configure its model first
+        base.OnModelCreating(modelBuilder);
 
-         
+        // Map Identity tables to the existing AspNet* table names
+        modelBuilder.Entity<AspNetUser>(b => b.ToTable("AspNetUsers"));
+        modelBuilder.Entity<IdentityRole<Guid>>(b => b.ToTable("AspNetRoles"));
+        modelBuilder.Entity<IdentityUserRole<Guid>>(b => b.ToTable("AspNetUserRoles"));
+        modelBuilder.Entity<IdentityUserClaim<Guid>>(b => b.ToTable("AspNetUserClaims"));
+        modelBuilder.Entity<IdentityUserLogin<Guid>>(b => b.ToTable("AspNetUserLogins"));
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>(b => b.ToTable("AspNetRoleClaims"));
+        modelBuilder.Entity<IdentityUserToken<Guid>>(b => b.ToTable("AspNetUserTokens"));
 
-        modelBuilder.Entity<AspNetUser>(entity =>
-        {
-            entity.HasIndex(e => e.NormalizedEmail, "IX_AspNetUsers_NormalizedEmail");
-
-            entity.HasIndex(e => e.UserName, "IX_AspNetUsers_UserName");
-
-            entity.HasIndex(e => e.NormalizedUserName, "UQ_AspNetUsers_NormalizedUserName").IsUnique();
-
-            entity.Property(e => e.Id).ValueGeneratedNever();
-            entity.Property(e => e.Email).HasMaxLength(256);
-            entity.Property(e => e.NormalizedEmail).HasMaxLength(256);
-            entity.Property(e => e.NormalizedUserName).HasMaxLength(256);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(50);
-            entity.Property(e => e.UserName).HasMaxLength(256);
-        });
-
+        // Existing scaffolded entity configurations
         modelBuilder.Entity<AttemptAnswer>(entity =>
         {
             entity.HasIndex(e => new { e.AttemptId, e.QuestionId }, "UQ_AttemptAnswers_AttemptId_QuestionId").IsUnique();

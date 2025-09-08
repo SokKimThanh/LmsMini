@@ -9,6 +9,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using Microsoft.AspNetCore.Identity;
 
 // 1. Khởi tạo Serilog logger (chạy trước khi tạo builder để bắt được log trong quá trình khởi tạo)
 Log.Logger = new LoggerConfiguration()
@@ -74,6 +75,22 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// 3.7 Đăng ký Identity
+builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options =>
+{
+    // Password settings (tweak as needed)
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+
+    // User settings
+    options.User.RequireUniqueEmail = true;
+})
+    .AddEntityFrameworkStores<LmsDbContext>()
+    .AddDefaultTokenProviders();
+
 var app = builder.Build();
 
 // 4. Cấu hình middleware (the request pipeline)
@@ -87,8 +104,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LmsMini API v1"));
 }
 
-// 4.3 Các middleware chung: HTTPS, Authorization, Controllers
+// 4.3 Các middleware chung: HTTPS, Authentication, Authorization, Controllers
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
