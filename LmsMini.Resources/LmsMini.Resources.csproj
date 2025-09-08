@@ -8,7 +8,7 @@
 
   <!-- Include document and image folders as content so they are part of the project and can be copied/published -->
   <ItemGroup>
-    <Content Include="File Tài li?u\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="File Tï¿½i li?u\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="File Hinh PlantUML\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
