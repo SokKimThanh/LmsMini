@@ -1,15 +1,15 @@
 ﻿# Hướng dẫn tích hợp ASP.NET Core Identity (dùng AspNetUser scaffolded)
 
-Mục tiêu: hướng dẫn chi tiết cách sử dụng lớp scaffolded `AspNetUser` làm user type cho ASP.NET Core Identity trong dự án LMS‑Mini. Bao gồm: chỉnh entity, cập nhật DbContext, đăng ký Identity trong Program.cs, tạo JWT, controller mẫu (register/login), seeder role, migration và troubleshooting duplicate mapping.
+Mục tiêu: hướng dẫn chi tiết cách sử dụng lớp scaffolded `AspNetUser` làm user type cho ASP.NET Core Identity trong dự án LMS‑Mini. Bao gồm: chỉnh entity, cập nhật DbContext, đăng ký Identity trong Program.cs, tạo JWT, controller mẫu (register/login), seeder role, migration và xử lý lỗi duplicate mapping.
 
 ---
 
 ## 1. Tóm tắt chiến lược
 
-- Sử dụng file scaffolded `LmsMini.Domain.Entities.Identity.AspNetUser` làm user type bằng cách cho nó kế thừa `IdentityUser<Guid>`; loại bỏ các thuộc tính trùng với Identity (UserName, Email, PasswordHash, ...).
+- Sử dụng file scaffolded `LmsMini.Domain.Entities.Identity.AspNetUser` làm user type bằng cách cho nó kế thừa `IdentityUser<Guid>`; loại bỏ các thuộc tính trùng với Identity (UserName, Email, PasswordHash...).
 - DbContext `LmsDbContext` kế thừa `IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>` và gọi `base.OnModelCreating(modelBuilder)` trước các cấu hình scaffolded.
-- Map các bảng Identity mặc định (`AspNetUsers`, `AspNetRoles`, `AspNetUserClaims`, ...) bằng `ToTable(...)` để giữ tương thích schema hiện tại.
-- Đăng ký Identity trong `Program.cs` và (tuỳ chọn) cấu hình JWT để phát token.
+- Map các bảng Identity mặc định (`AspNetUsers`, `AspNetRoles`, `AspNetUserClaims`, ...) bằng `ToTable(...)` để giữ tương thích schema hiện có.
+- Đăng ký Identity trong `Program.cs` và (tùy chọn) cấu hình JWT để phát token.
 
 ---
 
@@ -25,7 +25,7 @@ namespace LmsMini.Domain.Entities;
 
 public partial class AspNetUser : IdentityUser<Guid>
 {
-    // Chỉ giữ navigation properties, các thuộc tính cơ bản (UserName, Email, PasswordHash, ...) được cung cấp bởi IdentityUser<Guid>
+    // Chỉ giữ navigation properties; các thuộc tính cơ bản (UserName, Email, PasswordHash, ...) do IdentityUser<Guid> cung cấp
     public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
     public virtual ICollection<Course> Courses { get; set; } = new List<Course>();
     public virtual ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
@@ -45,11 +45,10 @@ Lưu ý: Không để các thuộc tính như `public Guid Id { get; set; }` hay
 
 File: `LmsMini.Infrastructure/Persistence/LmsDbContext.cs`
 
-Các điểm chính:
 - Kế thừa `IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>`.
 - Gọi `base.OnModelCreating(modelBuilder)` đầu tiên.
-- Map các bảng Identity bằng `ToTable(...)` để khớp schema scaffolded hiện có.
-- Xóa `DbSet<AspNetUser>` nếu trước đó khai báo thủ công (IdentityDbContext cung cấp `Users`).
+- Map các bảng Identity bằng `ToTable(...)` để khớp schema hiện có.
+- Xóa `DbSet<AspNetUser>` nếu trước đó đã khai báo thủ công (IdentityDbContext cung cấp `Users`).
 
 Ví dụ (trích đoạn):
 
@@ -84,7 +83,7 @@ public partial class LmsDbContext : IdentityDbContext<AspNetUser, IdentityRole<G
 
 - Đăng ký Identity với EF store và token providers.
 - Bật middleware Authentication trước Authorization.
-- (Tuỳ) Cấu hình JWT bearer để cấp token cho API.
+- (Tùy) Cấu hình JWT bearer để cấp token cho API.
 
 Ví dụ (trích đoạn):
 
@@ -246,7 +245,7 @@ dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api
 dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
 ```
 
-Chú ý: review SQL migration trước khi apply, đặc biệt nếu DB hiện có dữ liệu.
+Chú ý: kiểm tra SQL migration trước khi apply, đặc biệt nếu DB hiện có dữ liệu.
 
 ---
 
@@ -284,3 +283,62 @@ Khắc phục:
 - Tạo migration mẫu và cung cấp SQL để review.
 
 Nếu bạn muốn tôi tạo các file mẫu (Controller, Seeder, JWT config) trong workspace và chạy build, xác nhận tác vụ cụ thể — tôi sẽ thực hiện và kiểm tra build.
+
+---
+
+## 11. Các bước còn thiếu — hướng dẫn thực thi nhanh (actionable checklist)
+
+Dưới đây là danh sách các bước cụ thể cần làm tiếp để hoàn tất tích hợp Identity, mỗi bước kèm tệp cần tạo/sửa và lệnh kiểm tra.
+
+1) Tạo Design‑time DbContext Factory
+- File: `LmsMini.Infrastructure/Persistence/LmsDbContextFactory.cs`
+- Làm: implement `IDesignTimeDbContextFactory<LmsDbContext>` theo mẫu.
+- Kiểm tra: `dotnet ef migrations add TestFactory -p LmsMini.Infrastructure -s LmsMini.Api` (sau khi kiểm tra xong, xóa migration thử).
+
+2) Tạo RoleSeeder và AdminSeeder
+- File: `LmsMini.Infrastructure/Services/RoleSeeder.cs` và `AdminSeeder.cs` (tuỳ)
+- Làm: dùng `RoleManager<IdentityRole<Guid>>` và `UserManager<AspNetUser>` để tạo các role và admin mặc định.
+- Kiểm tra: chạy app và kiểm tra bảng `AspNetRoles`/`AspNetUsers`.
+
+3) Tạo AccountController (Register/Login/Confirm/Reset)
+- File: `LmsMini.Api/Controllers/AccountController.cs`
+- Làm: sử dụng `UserManager<AspNetUser>`, `SignInManager<AspNetUser>` để implement register/login; nếu dùng JWT thì tạo token.
+- Kiểm tra: đăng ký user + login qua Swagger/Postman, nhận token.
+
+4) Cấu hình JWT & Swagger
+- File: `LmsMini.Api/Program.cs` và `appsettings.Development.json` (hoặc user‑secrets)
+- Làm: thêm `AddAuthentication().AddJwtBearer(...)`, lưu `Jwt:Key`/`Issuer`/`Audience` ở secret.
+- Kiểm tra: login → copy token → Swagger Authorize → gọi endpoint bảo vệ.
+
+5) Email sender cho Confirm/Reset (dev stub)
+- File: `LmsMini.Infrastructure/Services/EmailSender.cs`
+- Làm: implement `IEmailSender` (dev: log token to console; prod: SMTP).
+- Kiểm tra: gửi confirm/reset link và kiểm tra log.
+
+6) Dọn các lớp scaffolded trùng (nếu có)
+- Tìm: `AspNetUserClaim.cs`, `AspNetUserLogin.cs`, `AspNetUserToken.cs`, `AspNetRoleClaim.cs`, v.v.
+- Quy tắc: chỉ dùng built‑in Identity types (IdentityUserClaim, IdentityUserLogin, ...) hoặc xóa scaffolded file để tránh duplicate mapping.
+- Kiểm tra: `dotnet build` không báo lỗi duplicate entity mapping.
+
+7) Migration baseline & review
+- Lệnh tạo migration:
+  `dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api`
+- Kiểm tra SQL script:
+  `dotnet ef migrations script -p LmsMini.Infrastructure -s LmsMini.Api`
+- Nếu DB có sẵn AspNet* và không muốn thay đổi, tạo migration rỗng hoặc dùng baseline.
+
+8) Tests & CI
+- Viết unit/integration tests cho register/login/role seeding.
+- Thêm CI step: block PR nếu migration thay đổi AspNet* mà chưa review.
+
+9) Chuẩn hóa navigation types
+- Tìm toàn cục `ApplicationUser` / `AspNetUser` và chuẩn hóa sang 1 type.
+- Kiểm tra: `dotnet build`.
+
+10) Secrets & cấu hình
+- Lưu JWT key vào user‑secrets hoặc environment variables (không commit vào repo).
+- Thêm `appsettings.Development.json.sample` chứa cấu trúc (không chứa secret).
+
+---
+
+Thực hiện các bước trên theo thứ tự sẽ giúp bạn hoàn tất tích hợp Identity an toàn và có thể chạy các flow register/login/role seeding một cách tin cậy. Nếu muốn, tôi có thể tạo các file mẫu (DesignTimeFactory, RoleSeeder, AdminSeeder, AccountController, EmailSender, và JWT config) trong workspace và chạy build/test — xác nhận hành động bạn muốn để tôi thực hiện tiếp.
