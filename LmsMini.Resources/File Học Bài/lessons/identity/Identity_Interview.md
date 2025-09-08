@@ -1,6 +1,6 @@
-﻿# ASP.NET Identity - Sổ Tay Phỏng Vấn (ngắn gọn)
+﻿# ASP.NET Identity - Sổ tay phỏng vấn (ngắn gọn)
 
-Mục tiêu: học thuộc lòng các khái niệm và câu trả lời mẫu để trả lời phỏng vấn trôi chảy.
+Mục tiêu: nắm nhanh các khái niệm và câu trả lời mẫu để trả lời phỏng vấn một cách trôi chảy.
 
 ---
 
@@ -8,7 +8,7 @@ Mục tiêu: học thuộc lòng các khái niệm và câu trả lời mẫu đ
 
 - ASP.NET Identity là thư viện quản lý người dùng tích hợp trong ASP.NET Core.
 - Nó xử lý: đăng ký, đăng nhập, phân quyền (roles), claims, reset mật khẩu.
-- Lưu trữ bằng Entity Framework Core khi dùng stores EF.
+- Thường lưu trữ bằng Entity Framework Core khi sử dụng EF stores.
 
 ---
 
@@ -16,94 +16,94 @@ Mục tiêu: học thuộc lòng các khái niệm và câu trả lời mẫu đ
 
 - User: đối tượng người dùng (IdentityUser hoặc ApplicationUser).
 - Role: tên vai trò (Admin, User, ...).
-- Claim: thông tin bổ sung về user (ví dụ can_view_reports).
+- Claim: thông tin bổ sung về user (ví dụ: can_view_reports).
 - UserManager<T>: API để quản lý user (Create, Find, AddToRole...).
 - SignInManager<T>: API để thực hiện đăng nhập/đăng xuất.
 - RoleManager<TRole>: API để quản lý roles.
-- Stores: nơi lưu dữ liệu (ví dụ Entity Framework stores).
+- Stores: nơi lưu dữ liệu (ví dụ: Entity Framework stores).
 
 ---
 
 ## Kiến thức cấu trúc (ngắn)
 
-- IdentityUser<TKey> là class cơ bản. TKey thường là string hoặc Guid.
+- IdentityUser<TKey> là lớp cơ bản. TKey thường là string hoặc Guid.
 - Tạo ApplicationUser : IdentityUser<Guid> để thêm thuộc tính như FullName.
 - DbContext: kế thừa IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid> nếu dùng EF.
-- Đăng ký trong Program.cs: AddIdentity / AddDefaultIdentity + AddEntityFrameworkStores.
+- Đăng ký trong Program.cs: AddIdentity / AddDefaultIdentity kết hợp AddEntityFrameworkStores.
 
 ---
 
 ## Các phương thức quan trọng (mẫu)
 
-- _userManager.CreateAsync(user, password)_ → tạo user.
-- _signInManager.PasswordSignInAsync(email, password, remember, lockout)_ → đăng nhập.
-- _userManager.AddToRoleAsync(user, "Admin")_ → gán role.
-- _roleManager.RoleExistsAsync("Admin")_ → kiểm tra role.
-- _userManager.FindByEmailAsync(email)_ → tìm user.
+- userManager.CreateAsync(user, password) → tạo user.
+- signInManager.PasswordSignInAsync(email, password, remember, lockout) → đăng nhập.
+- userManager.AddToRoleAsync(user, "Admin") → gán role.
+- roleManager.RoleExistsAsync("Admin") → kiểm tra role.
+- userManager.FindByEmailAsync(email) → tìm user.
 
 ---
 
 ## Authentication: cookie vs JWT (tóm tắt)
 
-- Cookie: phù hợp web app + server render. Dễ cấu hình.
-- JWT: phù hợp API/SPA. Token stateless, cần bảo mật key.
-- Luôn lưu secret (Jwt:Key) ở user-secrets hoặc env vars.
+- Cookie: phù hợp cho web app và server-rendered app. Dễ cấu hình.
+- JWT: phù hợp cho API/SPA. Token không trạng thái (stateless), cần bảo vệ khóa.
+- Luôn lưu secret (Jwt:Key) ở user-secrets hoặc biến môi trường.
 
 ---
 
-## Migration & chiến lược DB (quick)
+## Migration & chiến lược cơ sở dữ liệu (nhanh)
 
-- Code-first: tạo migration để tạo bảng AspNet* bằng EF.
+- Code-first: tạo migration để EF tạo bảng AspNet*.
   - Lệnh: dotnet ef migrations add InitIdentity -p LmsMini.Infrastructure -s LmsMini.Api
   - Áp: dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
-- Database-first (scaffold): map code tới bảng đã có. KHÔNG tạo migration cho AspNet*.
-- Nếu DB đã có bảng, tạo migration baseline rỗng hoặc xóa phần CreateTable trong migration.
+- Database-first (scaffold): ánh xạ code tới bảng đã có; KHÔNG chạy migration để tạo lại bảng AspNet*.
+- Nếu cơ sở dữ liệu đã có bảng tương ứng, tạo migration baseline (Up rỗng) hoặc chỉnh tay migration trước khi apply.
 
 ---
 
-## Câu hỏi phỏng vấn thường gặp và trả lời mẫu
+## Câu hỏi phỏng vấn thường gặp và câu trả lời mẫu
 
 Q: ASP.NET Identity là gì?
-A: Là framework quản lý user và auth trong ASP.NET Core. Cung cấp UserManager, SignInManager, RoleManager và stores.
+A: Là framework quản lý người dùng và xác thực trong ASP.NET Core. Cung cấp UserManager, SignInManager, RoleManager và các stores.
 
-Q: Làm sao lưu mật khẩu an toàn?
-A: Identity dùng hashing + salting tự động. Không lưu plaintext.
+Q: Cách lưu mật khẩu an toàn?
+A: Identity sử dụng hashing và salting tự động; không lưu mật khẩu ở dạng plain text.
 
-Q: Role vs Claim khác nhau thế nào?
-A: Role là nhóm (Admin). Claim là thông tin chi tiết (can_edit, department).
+Q: Role và Claim khác nhau thế nào?
+A: Role là nhóm (ví dụ: Admin). Claim là thông tin chi tiết hơn về user (ví dụ: can_edit, department).
 
-Q: Muốn thay Id type từ string sang Guid? Các bước?
-A: Thay generic parameter IdentityUser<Guid>, cập nhật DbContext và migration. Cẩn thận với dữ liệu cũ.
+Q: Muốn đổi Id type từ string sang Guid, cần làm gì?
+A: Thay generic parameter sang IdentityUser<Guid>, cập nhật DbContext và migration. Cần cẩn trọng với dữ liệu cũ.
 
-Q: Khi nào dùng UserManager vs SignInManager?
-A: UserManager để quản lý user. SignInManager để xử lý đăng nhập và cookie/JWT flow.
+Q: Khi nào dùng UserManager và khi nào dùng SignInManager?
+A: UserManager để thao tác quản lý user (tạo, sửa, gán role). SignInManager để xử lý luồng đăng nhập/đăng xuất và cookie/JWT flows.
 
 Q: Cách seed role an toàn?
-A: Dùng RoleManager trong scope khi ứng dụng khởi động. Kiểm tra RoleExists trước Create.
+A: Dùng RoleManager trong scope khi ứng dụng khởi động; kiểm tra RoleExists trước khi Create.
 
 ---
 
-## Debug nhanh (common issues)
+## Debug nhanh (vấn đề thường gặp)
 
-- No database provider has been configured → chưa gọi UseSqlServer/UseNpgsql.
+- No database provider has been configured → chưa gọi UseSqlServer/UseNpgsql trong cấu hình DbContext.
 - Password does not meet requirements → điều chỉnh PasswordOptions trong AddIdentity.
-- Migration tạo trùng AspNet* với DB hiện có → tạo migration rỗng hoặc xóa phần CreateTable.
-- Missing Jwt:Key → set user-secrets hoặc env var trước khi chạy.
+- Migration tạo trùng bảng AspNet* với DB hiện có → tạo migration baseline rỗng hoặc xóa phần CreateTable trong migration.
+- Missing Jwt:Key → đặt user-secrets hoặc biến môi trường trước khi chạy.
 
 ---
 
-## Mẹo trả lời phỏng vấn (ngắn)
+## Mẹo trả lời phỏng vấn (ngắn gọn)
 
-- Nói rõ bạn hiểu các lớp: UserManager, SignInManager, RoleManager.
-- Nêu ví dụ thực tế: "tôi dùng RoleSeeder để seed Admin khi app start".
-- Nếu nói về JWT, nhắc token validation và bảo vệ key.
-- Nếu nói migration, nhấn tính an toàn cho DB production (review, DBA).
+- Nêu rõ bạn hiểu các lớp: UserManager, SignInManager, RoleManager.
+- Đưa ví dụ thực tế: "Tôi dùng RoleSeeder để seed role Admin khi ứng dụng khởi động." 
+- Khi nói về JWT, nhấn mạnh token validation và bảo vệ khóa.
+- Khi nói về migration, nhấn vào việc review SQL trước khi apply và phối hợp với DBA ở môi trường production.
 
 ---
 
-## Câu trả lời mẫu 60s (elevator pitch)
+## Câu trả lời mẫu 60 giây (elevator pitch)
 
-"ASP.NET Identity là giải pháp quản lý người dùng cho ASP.NET Core. Nó cung cấp API để đăng ký, đăng nhập, quản lý roles và claims. Thường dùng với EF Core để lưu AspNetUsers, AspNetRoles. Tôi đã triển khai Identity ở dự án database-first: map lớp user tới bảng scaffolded, seed role bằng RoleManager, và đảm bảo không tạo migration cho bảng AspNet* để tránh xung đột." 
+"ASP.NET Identity là giải pháp quản lý người dùng cho ASP.NET Core. Nó cung cấp API để đăng ký, đăng nhập, quản lý roles và claims. Thường dùng với EF Core để lưu AspNetUsers, AspNetRoles. Tôi đã triển khai Identity trong dự án database-first: ánh xạ lớp user tới bảng scaffolded, seed role bằng RoleManager, và đảm bảo không chạy migration tạo lại bảng AspNet* để tránh xung đột dữ liệu."
 
 ---
 
@@ -116,4 +116,44 @@ A: Dùng RoleManager trong scope khi ứng dụng khởi động. Kiểm tra Rol
 
 ---
 
-Ghi nhớ: trả lời ngắn, trọng tâm, và kèm ví dụ thực tế. Chúc phỏng vấn thành công!
+## Các câu trả lời nhanh và đoạn mã mẫu (phục vụ ôn phỏng vấn)
+
+- Tóm tắt: "Chỉ dùng một CLR user type; gọi base.OnModelCreating; ánh xạ ToTable cho AspNet* nếu DB-first."
+
+- Ví dụ seed roles (ngắn):
+
+```csharp
+using var scope = app.Services.CreateScope();
+var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+if (!await rm.RoleExistsAsync("Admin")) await rm.CreateAsync(new IdentityRole<Guid>("Admin"));
+```
+
+- Ví dụ tạo JWT (tối giản):
+
+```csharp
+var claims = new[]{ new Claim(ClaimTypes.Name, user.UserName) };
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]));
+var token = new JwtSecurityToken(signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256), claims: claims, expires: DateTime.UtcNow.AddHours(1));
+```
+
+---
+
+## Checklist quyết định kiến trúc (nói trong phỏng vấn)
+
+- Quyết: code-first hay DB-first (ai quản lý schema?).
+- Chọn một CLR user type duy nhất (ApplicationUser hay scaffolded AspNetUser).
+- Quyết nơi seed roles và admin (seeder chạy khi khởi động ứng dụng trong scope).
+- Quyết chiến lược token: JWT access + refresh hay cookie.
+- Đặt các quyết định bảo mật: yêu cầu xác nhận email, lockout, chính sách mật khẩu.
+
+---
+
+## Vấn đề phổ biến và cách sửa nhanh
+
+- Duplicate mapping → đảm bảo chỉ có một CLR type ánh xạ AspNetUsers.
+- DbContext build fails in EF CLI → thêm IDesignTimeDbContextFactory.
+- Migration collides with existing DB → tạo baseline migration hoặc chỉnh SQL migration.
+
+---
+
+Ghi nhớ: trả lời ngắn, trọng tâm và kèm ví dụ thực tế. Chúc phỏng vấn thành công!

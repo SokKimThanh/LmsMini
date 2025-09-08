@@ -101,4 +101,44 @@ app.UseAuthorization();
 
 ---
 
+## Phần bổ sung: Phỏng vấn nhanh — câu trả lời ngắn (thêm)
+- ASP.NET Identity là gì? — Framework quản lý user/auth tích hợp, cung cấp UserManager/SignInManager/RoleManager và stores (EF Core).
+- Khi nào dùng Guid cho Id? — Khi DB cột Id là UNIQUEIDENTIFIER hoặc cần GUID across systems.
+- Duplicate mapping là gì? — Khi 2 CLR types/mapping cùng ánh xạ một bảng (ví dụ AspNetUser và ApplicationUser) gây lỗi khi model được build.
+- Khi EF CLI fail lúc chạy migration do Program.cs? — Thêm IDesignTimeDbContextFactory để tách design-time tạo DbContext.
+
+---
+
+## Phần bổ sung: Mẫu snippets (nhanh)
+- Seed roles (minimal):
+
+```csharp
+using var scope = app.Services.CreateScope();
+var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+var roles = new[] { "Admin", "Instructor", "Learner" };
+foreach (var r in roles)
+{
+    if (!await rm.RoleExistsAsync(r)) await rm.CreateAsync(new IdentityRole<Guid>(r));
+}
+```
+
+- JWT create (minimal):
+
+```csharp
+var claims = new[] { new Claim(ClaimTypes.Name, user.UserName) };
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]));
+var token = new JwtSecurityToken(claims: claims, expires: DateTime.UtcNow.AddHours(1), signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+```
+
+---
+
+## Phần bổ sung: Kiểm tra kiến trúc (nói trong phỏng vấn)
+- Ai quản lý schema? (Code-first hay DB-first?)
+- Loại user CLR nào dùng? (ApplicationUser hay scaffolded AspNetUser?)
+- Nơi seed roles/admin? (startup seeder với scope)
+- Token strategy? (JWT access + refresh hoặc cookie)
+- Security decisions: email confirmation, lockout, password policy.
+
+---
+
 File: `LmsMini.Api/docs/identity/StudyCard_Identity.md` — lưu để in hoặc dán cạnh màn hình.
