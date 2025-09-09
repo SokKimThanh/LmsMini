@@ -93,20 +93,25 @@ Tệp này đặt tại: `LmsMini.Resources/lessons/identity/AccountController_C
 
 ## 2. DTOs mẫu (tạo file trong LmsMini.Api/Models hoặc LmsMini.Application)
 
+Lưu ý: một số DTO có thể đã tồn tại trong project (ví dụ `RegisterRequest`, `LoginRequest` được dùng ở controller hiện tại). Ở danh sách dưới, tôi đánh dấu [EXISTING] cho DTO mà bạn nên kiểm tra/không tạo lại, và [CREATE] cho DTO mới cần tạo nếu chưa có.
+
 ```csharp
-public record RegisterRequest(string Email, string Password);
-public record LoginRequest(string Email, string Password);
-public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-public record ForgotPasswordRequest(string Email);
-public record ResetPasswordRequest(string Email, string Token, string NewPassword);
-public record ConfirmEmailRequest(Guid UserId, string Token);
-public record UpdateProfileRequest(string? UserName, string? DisplayName);
-public record DeleteAccountRequest(string? Password);
-public record RoleRequest(string Name, string Description);
-public record SetupAdminRequest(string Email, string Password, string Role);
+// [EXISTING] => kiểm tra trong dự án, không tạo nếu đã có
+public record RegisterRequest(string Email, string Password); // [EXISTING]
+public record LoginRequest(string Email, string Password);    // [EXISTING]
+
+// [CREATE] => tạo mới trong LmsMini.Api/Models nếu chưa có
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword); // [CREATE]
+public record ForgotPasswordRequest(string Email);                               // [CREATE]
+public record ResetPasswordRequest(string Email, string Token, string NewPassword); // [CREATE]
+public record ConfirmEmailRequest(Guid UserId, string Token);                    // [CREATE]
+public record UpdateProfileRequest(string? UserName, string? DisplayName);       // [CREATE]
+public record DeleteAccountRequest(string? Password);                            // [CREATE]
+public record RoleRequest(string Name, string Description);                      // [CREATE]
+public record SetupAdminRequest(string Email, string Password, string Role);     // [CREATE]
 ```
 
-Gợi ý: thêm DataAnnotations nếu cần.
+Gợi ý: thêm DataAnnotations nếu cần (e.g. [Required], [EmailAddress], [StringLength]).
 
 ---
 
