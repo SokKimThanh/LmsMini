@@ -66,6 +66,8 @@ Phần này liệt kê các endpoint để triển khai tính năng quản lý t
 
 **Sơ đồ tổng quan endpoint**
 
+Sơ đồ này minh họa toàn bộ các endpoint của AccountController, phân loại theo quyền truy cập.
+
 ```mermaid
 flowchart LR
   classDef public fill:#e6ffed,stroke:#2e7d32,stroke-width:1px;
@@ -362,7 +364,9 @@ public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
 }
 ```
 
-**Sơ đồ Forgot → Reset Password (sequence)**
+**Luồng Forgot/Reset Password**
+
+Minh họa các bước từ khi người dùng yêu cầu quên mật khẩu đến khi đặt lại mật khẩu thành công.
 
 ```mermaid
 sequenceDiagram
@@ -386,7 +390,9 @@ sequenceDiagram
 
 *Đã mô tả ở phần trước.* (giữ nguyên code)
 
-**Sơ đồ Forgot → Reset Password (sequence)** (lặp lại cho chỗ này để độc lập)
+**Luồng Forgot/Reset Password**
+
+Minh họa các bước từ khi người dùng yêu cầu quên mật khẩu đến khi đặt lại mật khẩu thành công.
 
 ```mermaid
 sequenceDiagram
@@ -433,7 +439,9 @@ sequenceDiagram
 
 *Đã mô tả ở phần trước.* (giữ nguyên code)
 
-**Sơ đồ Refresh Token & Logout (sequence)**
+**Luồng Refresh Token & Logout**
+
+Minh họa quá trình đổi refresh token lấy access token mới và thu hồi refresh token khi logout.
 
 ```mermaid
 sequenceDiagram
@@ -488,7 +496,9 @@ await RoleSeeder.SeedAsync(app.Services);
 
 **AdminSeeder (tuỳ chọn)**: tạo user admin mặc định; lưu credentials trong config/user-secrets.
 
-**Sơ đồ Role seeding & Admin tạo**
+**Quy trình seed role và admin**
+
+Sơ đồ mô tả các bước tạo role mặc định và tài khoản admin.
 
 ```mermaid
 flowchart TD
@@ -615,7 +625,9 @@ Danh sách các điểm bảo mật cần chú ý:
 9. Chạy `dotnet build` và `dotnet run`; kiểm tra bằng Postman/Swagger.
 10. Viết integration tests (mock hoặc test server) cho các flow quan trọng.
 
-**Sơ đồ quy trình triển khai tổng quan**
+**Quy trình triển khai tổng thể**
+
+Minh họa các bước triển khai từ khâu chuẩn bị đến kiểm thử.
 
 ```mermaid
 flowchart TD
