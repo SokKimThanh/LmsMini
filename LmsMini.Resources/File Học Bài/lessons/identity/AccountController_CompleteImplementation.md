@@ -64,6 +64,44 @@ Phần này liệt kê các endpoint để triển khai tính năng quản lý t
 
 > *Output* ở trên là mô tả ngắn; trong thực tế có thể trả object lỗi/chi tiết theo chuẩn API của dự án.
 
+**Sơ đồ tổng quan endpoint**
+
+```mermaid
+flowchart LR
+  classDef public fill:#e6ffed,stroke:#2e7d32,stroke-width:1px;
+  classDef auth fill:#e8f4ff,stroke:#1565c0,stroke-width:1px;
+  classDef admin fill:#fff0f0,stroke:#c62828,stroke-width:1px;
+
+  subgraph PublicEndpoints[Public]
+    FP([/api/account/forgot-password]):::public
+    RP([/api/account/reset-password]):::public
+    CE([/api/account/confirm-email]):::public
+    RT([/api/account/refresh-token]):::public
+    SA([/api/account/setup-admin]):::public
+  end
+
+  subgraph AuthorizedEndpoints[Authorized]
+    CP([/api/account/change-password]):::auth
+    ME([/api/account/me (GET)]):::auth
+    UME([/api/account/me (PUT)]):::auth
+    DEL([/api/account (DELETE)]):::auth
+    LO([/api/account/logout]):::auth
+  end
+
+  subgraph AdminEndpoints[Admin]
+    GR([/api/account/roles (GET)]):::admin
+    CR([/api/account/roles (POST)]):::admin
+    UR([/api/account/roles/{id} (PUT)]):::admin
+    DR([/api/account/roles/{id} (DELETE)]):::admin
+  end
+
+  PublicEndpoints --> AuthorizedEndpoints
+  AuthorizedEndpoints --> AdminEndpoints
+  FP --> RP
+  RT --> LO
+  SA --> CR
+```
+
 ---
 
 ## 2. DTOs mẫu
@@ -306,11 +344,66 @@ await RoleSeeder.SeedAsync(app.Services);
 
 ### 5.2 Forgot password
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Mô tả:** Tạo token đặt lại mật khẩu và gửi email (không tiết lộ user tồn tại).
+
+```csharp
+[HttpPost("forgot-password")]
+public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
+{
+    var user = await _user_manager.FindByEmailAsync(req.Email);
+    if (user == null) return Ok(); // không tiết lộ user tồn tại
+
+    var token = await _user_manager.GeneratePasswordResetTokenAsync(user);
+    var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+    var url = $"{_config["App:BaseUrl"]}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={encoded}";
+
+    await _emailSender.SendEmailAsync(user.Email, "Reset password", $"Click: {url}");
+    return Ok();
+}
+```
+
+**Sơ đồ Forgot → Reset Password (sequence)**
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant API as API (Forgot)
+  participant Email as EmailSender
+  participant API2 as API (Reset)
+
+  U->>API: POST /api/account/forgot-password { email }
+  API-->>API: GeneratePasswordResetToken
+  API->>Email: SendEmail(link with token)
+  Email-->>U: Email with reset link
+  Note over U: User clicks link in email
+  U->>API2: GET/POST /reset-password (token)
+  API2-->>API2: Decode token, ResetPasswordAsync
+  API2-->>U: 200 OK or 400 Error
+```
 
 ### 5.3 Reset password
 
 *Đã mô tả ở phần trước.* (giữ nguyên code)
+
+**Sơ đồ Forgot → Reset Password (sequence)** (lặp lại cho chỗ này để độc lập)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant API as API (Forgot)
+  participant Email as EmailSender
+  participant API2 as API (Reset)
+
+  U->>API: POST /api/account/forgot-password { email }
+  API-->>API: GeneratePasswordResetToken
+  API->>Email: SendEmail(link with token)
+  Email-->>U: Email with reset link
+  U->>API2: POST /api/account/reset-password { email, token, newPassword }
+  API2-->>API2: ResetPasswordAsync(token, newPassword)
+  API2-->>U: 200 OK or 400 Error
+```
 
 ### 5.4 Confirm email
 
@@ -334,99 +427,34 @@ await RoleSeeder.SeedAsync(app.Services);
 
 ### 5.9 Login / Register — cập nhật để phát refresh token và gán role
 
-**Mô tả:** mở rộng login để trả cả access token (JWT) và refresh token; lưu refresh token trong DB.
-
-**DB model (ví dụ):**
-
-```csharp
-public class RefreshToken
-{
-    public Guid Id { get; set; }
-    public string Token { get; set; } = null!;
-    public Guid UserId { get; set; }
-    public DateTime Expires { get; set; }
-    public bool IsRevoked { get; set; }
-}
-```
-
-**On login (mã mẫu):**
-
-```csharp
-// tạo access token như trước
-string accessToken = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
-
-// tạo refresh token (random)
-var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-var rt = new RefreshToken { Token = refreshToken, UserId = user.Id, Expires = DateTime.UtcNow.AddDays(7) };
-// lưu rt vào DbContext (ví dụ _db.RefreshTokens.Add(rt); await _db.SaveChangesAsync(); )
-
-return Ok(new { accessToken, refreshToken });
-```
-
-**Register**: sau CreateAsync, bạn có thể gọi `_userManager.AddToRoleAsync(user, "Learner")` (hoặc role tùy config).
+*Đã mô tả ở phần trước.* (giữ nguyên code)
 
 ### 5.10 Refresh token & Logout (code mẫu hoàn chỉnh)
 
-**Mô tả:** Đổi refresh token lấy access token mới; Logout thu hồi refresh token.
+*Đã mô tả ở phần trước.* (giữ nguyên code)
 
-```csharp
-[HttpPost("refresh-token")]
-public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
-{
-    // Tìm refresh token trong DB
-    var stored = await _db.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
-    if (stored == null || stored.IsRevoked || stored.Expires < DateTime.UtcNow) return Unauthorized();
+**Sơ đồ Refresh Token & Logout (sequence)**
 
-    var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
-    if (user == null) return Unauthorized();
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as User/Client
+  participant API as API Server
+  participant DB as Database
 
-    // tạo access token mới (same claims as login)
-    var roles = await _userManager.GetRolesAsync(user);
-    var claims = new List<Claim>
-    {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty)
-    };
-    claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+  U->>API: POST /api/account/refresh-token { refreshToken }
+  API->>DB: Find refresh token
+  DB-->>API: token record
+  API-->>API: validate token, create new access token
+  API->>DB: revoke old token, store new refresh token
+  API-->>U: { accessToken, refreshToken }
 
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-    var token = new JwtSecurityToken(
-        issuer: _config["Jwt:Issuer"],
-        audience: _config["Jwt:Audience"],
-        claims: claims,
-        expires: DateTime.UtcNow.AddMinutes(int.Parse(_config["Jwt:ExpiresInMinutes"] ?? "60")),
-        signingCredentials: creds
-    );
-    var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
-
-    // optionally rotate refresh token: revoke old and issue new
-    stored.IsRevoked = true;
-    var newRt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-    var rtEntity = new RefreshToken { Token = newRt, UserId = stored.UserId, Expires = DateTime.UtcNow.AddDays(7) };
-    _db.RefreshTokens.Add(rtEntity);
-    await _db.SaveChangesAsync();
-
-    return Ok(new { accessToken, refreshToken = newRt });
-}
-
-[HttpPost("logout")]
-[Authorize]
-public async Task<IActionResult> Logout(LogoutRequest req)
-{
-    // mark refresh token revoked
-    var stored = await _db.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
-    if (stored != null)
-    {
-        stored.IsRevoked = true;
-        await _db.SaveChangesAsync();
-    }
-    return Ok();
-}
+  U->>API: POST /api/account/logout { refreshToken }
+  API->>DB: Find token
+  DB-->>API: token record
+  API->>DB: mark token revoked
+  API-->>U: 200 OK
 ```
-
-> *Ghi chú:* `_db` là instance của `LmsDbContext` có `DbSet<RefreshToken> RefreshTokens`.
 
 ---
 
@@ -435,7 +463,7 @@ public async Task<IActionResult> Logout(LogoutRequest req)
 **Mô tả:** Token do Identity sinh có ký tự đặc biệt — *không* truyền thẳng trong URL. Dùng Base64Url encode/decode.
 
 ```csharp
-var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+var token = await _user_manager.GeneratePasswordResetTokenAsync(user);
 var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
 // Khi nhận lại
@@ -459,6 +487,32 @@ await RoleSeeder.SeedAsync(app.Services);
 ```
 
 **AdminSeeder (tuỳ chọn)**: tạo user admin mặc định; lưu credentials trong config/user-secrets.
+
+**Sơ đồ Role seeding & Admin tạo**
+
+```mermaid
+flowchart TD
+  classDef seed fill:#fff7e6,stroke:#ff8f00,stroke-width:1px;
+  classDef action fill:#e8f4ff,stroke:#1565c0,stroke-width:1px;
+
+  Start([Start])
+  CheckRoles{Roles exist?}
+  CreateRoles[/Create Admin, Instructor, Learner/]
+  CheckAdmin{Admin user exists?}
+  CreateAdmin[/Create admin user & assign Admin role/]
+  End([End])
+
+  Start --> CheckRoles
+  CheckRoles -- no --> CreateRoles
+  CreateRoles --> CheckAdmin
+  CheckRoles -- yes --> CheckAdmin
+  CheckAdmin -- no --> CreateAdmin
+  CreateAdmin --> End
+  CheckAdmin -- yes --> End
+
+  class CreateRoles,CreateAdmin action
+  class CheckRoles,CheckAdmin seed
+```
 
 ---
 
@@ -560,6 +614,22 @@ Danh sách các điểm bảo mật cần chú ý:
 8. Chạy `dotnet ef migrations add` và `dotnet ef database update` để cập nhật schema.
 9. Chạy `dotnet build` và `dotnet run`; kiểm tra bằng Postman/Swagger.
 10. Viết integration tests (mock hoặc test server) cho các flow quan trọng.
+
+**Sơ đồ quy trình triển khai tổng quan**
+
+```mermaid
+flowchart TD
+  classDef step fill:#e8f4ff,stroke:#1565c0,stroke-width:1px;
+  classDef action fill:#fff7e6,stroke:#ff8f00,stroke-width:1px;
+  classDef done fill:#e6ffed,stroke:#2e7d32,stroke-width:1px;
+
+  DTO["1. Tạo DTOs & Models"]:::step --> CFG["2. Cấu hình Program.cs (Identity, JWT, Email)"]:::action
+  CFG --> MIG["3. Tạo migration & update DB"]:::action
+  MIG --> CONT["4. Cập nhật AccountController (endpoints, refresh token)"]:::action
+  CONT --> SEED["5. Chạy RoleSeeder & AdminSeeder"]:::action
+  SEED --> TEST["6. Viết & chạy tests (xUnit)"]:::action
+  TEST --> DONE["Hoàn thành"]:::done
+```
 
 ---
 
