@@ -8,6 +8,7 @@
 - [5. Controller mẫu: AccountController (Register + Login → JWT)](#5-controller-mẫu-accountcontroller-register--login-→-jwt)
 - [6. RoleSeeder (sử dụng RoleManager)](#6-roleseeder-sử-dụng-rolemanager)
 - [7. Migration & apply](#7-migration--apply)
+- [7.1 Handling pre-existing AspNetUsers table](#71-handling-pre-existing-aspnetusers-table)
 - [8. Troubleshooting: Duplicate entity mapping](#8-troubleshooting-duplicate-entity-mapping)
 - [9. Best practices & security](#9-best-practices--security)
 - [10. Next steps (tùy chọn tôi có thể làm giúp)](#10-next-steps-tùy-chọn-tôi-có-thể-làm-giúp)
@@ -262,269 +263,27 @@ Chú ý: kiểm tra SQL migration trước khi apply, đặc biệt nếu DB hi�
 
 ---
 
-## 8. Troubleshooting: Duplicate entity mapping
+## 7.1 Handling pre-existing AspNetUsers table
 
-Nguyên nhân phổ biến:
-- Có hai CLR types ánh xạ cùng bảng `AspNetUsers` (ví dụ: `AspNetUser` scaffolded và `ApplicationUser` cùng tồn tại).
-- DbContext cấu hình mapping trùng (ví dụ cả `DbSet<AspNetUser>` và `IdentityDbContext<ApplicationUser,...>` cùng ánh xạ `AspNetUsers`).
+Nếu database của bạn đã có bảng `AspNetUsers` (ví dụ bạn đã tạo thủ công via `lsm-db.sql`) nhưng các bảng Identity khác (AspNetRoles, AspNetUserRoles, ...) chưa tồn tại, EF migration mặc định sẽ cố tạo lại `AspNetUsers` và sẽ thất bại với lỗi kiểu "There is already an object named 'AspNetUsers' in the database.".
 
-Kiểm tra:
-- Tìm `class ApplicationUser` trong solution.
-- Tìm `DbSet<AspNetUser>` và các `modelBuilder.Entity<...>().ToTable("AspNetUsers")` trùng lặp.
+Các cách an toàn để xử lý (chọn 1):
 
-Khắc phục:
-- Giữ một kiểu duy nhất cho user (trong hướng dẫn này là `AspNetUser`).
-- Đảm bảo chỉ map bảng `AspNetUsers` một lần: gọi `base.OnModelCreating()` và sử dụng `modelBuilder.Entity<AspNetUser>().ToTable("AspNetUsers")` nếu cần.
+A) Keep existing AspNetUsers and let migration create the rest (recommended when you must preserve user data)
+- Manual approach: run SQL to create the missing Identity tables (AspNetRoles, AspNetRoleClaims, AspNetUserClaims, AspNetUserLogins, AspNetUserTokens, AspNetUserRoles) using DDL matching migration Up().
+- Or edit the migration file to skip CreateTable("AspNetUsers") and skip creating indexes on AspNetUsers (so EF will create only missing tables). Then run `dotnet ef database update`.
+- After that, ensure `__EFMigrationsHistory` contains the migration record (EF will insert it after successful update).
 
----
-# Hướng dẫn tích hợp ASP.NET Core Identity (dùng AspNetUser scaffolded)
+B) Baseline migration (record as applied without changing DB)
+- If you manually ensured schema matches the migration, you can insert a row into `__EFMigrationsHistory` with the migration id and product version to mark it applied. Only do this if you are sure schema matches migration.
 
-Mục tiêu: hướng dẫn chi tiết cách sử dụng lớp scaffolded `AspNetUser` làm user type cho ASP.NET Core Identity trong dự án LMS‑Mini. Bao gồm: chỉnh entity, cập nhật DbContext, đăng ký Identity trong Program.cs, tạo JWT, controller mẫu (register/login), seeder role, migration và xử lý lỗi duplicate mapping.
+C) Let EF manage everything (drop existing AspNetUsers)
+- If user data is not needed, drop `AspNetUsers` and re-run `dotnet ef database update` so EF will create the full Identity schema. Backup DB first.
 
----
-
-## 1. Tóm tắt chiến lược
-
-- Sử dụng file scaffolded `LmsMini.Domain.Entities.Identity.AspNetUser` làm user type bằng cách cho nó kế thừa `IdentityUser<Guid>`; loại bỏ các thuộc tính trùng với Identity (UserName, Email, PasswordHash...).
-- DbContext `LmsDbContext` kế thừa `IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>` và gọi `base.OnModelCreating(modelBuilder)` trước các cấu hình scaffolded.
-- Map các bảng Identity mặc định (`AspNetUsers`, `AspNetRoles`, `AspNetUserClaims`, ...) bằng `ToTable(...)` để giữ tương thích schema hiện có.
-- Đăng ký Identity trong `Program.cs` và (tùy chọn) cấu hình JWT để phát token.
-
----
-
-## 2. Chỉnh AspNetUser (ví dụ)
-
-File: `LmsMini.Domain/Entities/Identity/AspNetUser.cs`
-
-```csharp
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Identity;
-
-namespace LmsMini.Domain.Entities;
-
-public partial class AspNetUser : IdentityUser<Guid>
-{
-    // Chỉ giữ navigation properties; các thuộc tính cơ bản (UserName, Email, PasswordHash, ...) do IdentityUser<Guid> cung cấp
-    public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
-    public virtual ICollection<Course> Courses { get; set; } = new List<Course>();
-    public virtual ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();
-    public virtual ICollection<FileAsset> FileAssets { get; set; } = new List<FileAsset>();
-    public virtual ICollection<Notification> NotificationSentByNavigations { get; set; } = new List<Notification>();
-    public virtual ICollection<Notification> NotificationToUsers { get; set; } = new List<Notification>();
-    public virtual ICollection<Progress> Progresses { get; set; } = new List<Progress>();
-    public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
-}
-```
-
-Lưu ý: Không để các thuộc tính như `public Guid Id { get; set; }` hay `public string PasswordHash { get; set; }` xuất hiện trùng lặp — IdentityUser đã định nghĩa chúng.
-
----
-
-## 3. Cập nhật LmsDbContext (ví dụ)
-
-File: `LmsMini.Infrastructure/Persistence/LmsDbContext.cs`
-
-- Kế thừa `IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>`.
-- Gọi `base.OnModelCreating(modelBuilder)` đầu tiên.
-- Map các bảng Identity bằng `ToTable(...)` để khớp schema hiện có.
-- Xóa `DbSet<AspNetUser>` nếu trước đó đã khai báo thủ công (IdentityDbContext cung cấp `Users`).
-
-Ví dụ (trích đoạn):
-
-```csharp
-public partial class LmsDbContext : IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>
-{
-    public LmsDbContext(DbContextOptions<LmsDbContext> options) : base(options) { }
-
-    // DbSet khác...
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
-
-        // map Identity tables → giữ tên AspNet* hiện có
-        modelBuilder.Entity<AspNetUser>(b => b.ToTable("AspNetUsers"));
-        modelBuilder.Entity<IdentityRole<Guid>>(b => b.ToTable("AspNetRoles"));
-        modelBuilder.Entity<IdentityUserRole<Guid>>(b => b.ToTable("AspNetUserRoles"));
-        modelBuilder.Entity<IdentityUserClaim<Guid>>(b => b.ToTable("AspNetUserClaims"));
-        modelBuilder.Entity<IdentityUserLogin<Guid>>(b => b.ToTable("AspNetUserLogins"));
-        modelBuilder.Entity<IdentityRoleClaim<Guid>>(b => b.ToTable("AspNetRoleClaims"));
-        modelBuilder.Entity<IdentityUserToken<Guid>>(b => b.ToTable("AspNetUserTokens"));
-
-        // existing scaffolded entity configurations ...
-    }
-}
-```
-
----
-
-## 4. Đăng ký Identity & Authentication trong Program.cs
-
-- Đăng ký Identity với EF store và token providers.
-- Bật middleware Authentication trước Authorization.
-- (Tùy) Cấu hình JWT bearer để cấp token cho API.
-
-Ví dụ (trích đoạn):
-
-```csharp
-builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options =>
-{
-    options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 6;
-    options.User.RequireUniqueEmail = true;
-})
-.AddEntityFrameworkStores<LmsDbContext>()
-.AddDefaultTokenProviders();
-
-// (Nếu dùng JWT) AddAuthentication + AddJwtBearer
-builder.Services.AddAuthentication(options => {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options => {
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = configuration["Jwt:Issuer"],
-        ValidAudience = configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]))
-    };
-});
-
-app.UseAuthentication();
-app.UseAuthorization();
-```
-
----
-
-## 5. Controller mẫu: AccountController (Register + Login → JWT)
-
-File ví dụ: `LmsMini.Api/Controllers/AccountController.cs`
-
-```csharp
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Identity;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-
-[ApiController]
-[Route("api/[controller]")]
-public class AccountController : ControllerBase
-{
-    private readonly UserManager<AspNetUser> _userManager;
-    private readonly SignInManager<AspNetUser> _signInManager;
-    private readonly IConfiguration _config;
-
-    public AccountController(UserManager<AspNetUser> userManager, SignInManager<AspNetUser> signInManager, IConfiguration config)
-    {
-        _userManager = userManager;
-        _signInManager = signInManager;
-        _config = config;
-    }
-
-    [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequest req)
-    {
-        var user = new AspNetUser { UserName = req.Email, Email = req.Email };
-        var result = await _userManager.CreateAsync(user, req.Password);
-        if (!result.Succeeded) return BadRequest(result.Errors);
-
-        // Add default role if needed
-        await _userManager.AddToRoleAsync(user, "Learner");
-
-        return Ok();
-    }
-
-    [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginRequest req)
-    {
-        var user = await _userManager.FindByEmailAsync(req.Email);
-        if (user == null) return Unauthorized();
-
-        var pwOk = await _userManager.CheckPasswordAsync(user, req.Password);
-        if (!pwOk) return Unauthorized();
-
-        // create JWT
-        var roles = await _userManager.GetRolesAsync(user);
-        var claims = new List<Claim>
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new Claim(ClaimTypes.Name, user.UserName ?? string.Empty)
-        };
-        claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
-            signingCredentials: creds);
-
-        return Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token) });
-    }
-}
-```
-
-Mẫu DTOs:
-
-```csharp
-public record RegisterRequest(string Email, string Password);
-public record LoginRequest(string Email, string Password);
-```
-
----
-
-## 6. RoleSeeder (sử dụng RoleManager)
-
-```csharp
-public static class RoleSeeder
-{
-    public static async Task SeedAsync(IServiceProvider services)
-    {
-        using var scope = services.CreateScope();
-        var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-        var roles = new[] { "Admin", "Instructor", "Learner" };
-        foreach (var r in roles)
-        {
-            if (!await rm.RoleExistsAsync(r)) await rm.CreateAsync(new IdentityRole<Guid>(r));
-        }
-    }
-}
-```
-
-Gọi seeder sau khi `var app = builder.Build();` trước `app.Run();`:
-
-```csharp
-await RoleSeeder.SeedAsync(app.Services);
-```
-
----
-
-## 7. Migration & apply
-
-- Tạo migration (từ solution root):
-
-```
-dotnet ef migrations add Init_Identity -p LmsMini.Infrastructure -s LmsMini.Api
-```
-
-- Áp dụng migration:
-
-```
-dotnet ef database update -p LmsMini.Infrastructure -s LmsMini.Api
-```
-
-Chú ý: kiểm tra SQL migration trước khi apply, đặc biệt nếu DB hiện có dữ liệu.
+Checklist before applying any option
+- Backup the database.
+- Compare real `AspNetUsers` columns and indexes with EF model (INFORMATION_SCHEMA.COLUMNS). Required columns include Id (uniqueidentifier PK), NormalizedUserName, NormalizedEmail, PasswordHash, etc.
+- If you edit migration files, review Up()/Down() carefully and keep Down() symmetric.
 
 ---
 
@@ -561,7 +320,7 @@ Khắc phục:
 - Thêm cấu hình JWT vào Program.cs và cập nhật Swagger để dùng Bearer token.
 - Tạo migration mẫu và cung cấp SQL để review.
 
-Nếu bạn muốn tôi tạo các file mẫu (Controller, Seeder, JWT config) trong workspace và chạy build, xác nhận tác vụ cụ thể — tôi sẽ thực hiện và kiểm tra build.
+Nếu bạn muốn tôi tạo các file mẫu (DesignTimeFactory, RoleSeeder, AdminSeeder, AccountController, EmailSender, và JWT config) trong workspace và chạy build, xác nhận hành động cụ thể — tôi sẽ thực hiện và kiểm tra build.
 
 ---
 
@@ -621,3 +380,31 @@ Dưới đây là danh sách các bước cụ thể cần làm tiếp để ho�
 ---
 
 Thực hiện các bước trên theo thứ tự sẽ giúp bạn hoàn tất tích hợp Identity an toàn và có thể chạy các flow register/login/role seeding một cách tin cậy. Nếu muốn, tôi có thể tạo các file mẫu (DesignTimeFactory, RoleSeeder, AdminSeeder, AccountController, EmailSender, và JWT config) trong workspace và chạy build/test — xác nhận hành động bạn muốn để tôi thực hiện tiếp.
+
+## 7.2 Chuyển sang DB‑first (đã dừng dùng migration) — hành động thực tế
+
+Lưu ý: phần này ghi lại quyết định và các thay đổi thực tế đã được thực hiện trong workspace khi tác giả (bạn) muốn dừng hệ thống migration và làm theo hướng DB‑first.
+
+Tình huống và ý định
+- Bạn đã có một database hoàn chỉnh (schema đã scaffold/được tạo bằng script) và muốn dùng DB‑first: giữ schema hiện có và tích hợp Identity qua lớp scaffolded `AspNetUser` + `LmsDbContext` kế thừa `IdentityDbContext<...>`.
+- Mục tiêu: ngưng chạy/áp migration EF Core, loại bỏ các file migration hiện có và model snapshot, tiếp tục phát triển dựa trên DB hiện có.
+
+Hành động đã thực hiện (ghi rõ, đã thực hiện trong workspace):
+- Xóa các migration không cần thiết từ thư mục LmsMini.Infrastructure/Migrations, ví dụ các file migration liên quan đến Initial/Init_Identity (ví dụ: `20250909033344_InitialIdentity.*` và `20250909034045_Init_Identity.*`).
+- Xóa file model snapshot (`LmsDbContextModelSnapshot.cs`) để dọn sạch trạng thái migrations trong source tree.
+- Chạy build để xác nhận project vẫn compile sau khi xóa (build thành công).
+
+Tác động
+- Không còn migration files trong project Infrastructure → EF sẽ không áp migration từ repo nữa.
+- Database hiện có được coi là nguồn chân thực (source of truth). EF được dùng như ORM (DB‑first) dựa trên các entity scaffolded hiện có.
+
+Khuyến nghị tiếp theo (an toàn):
+- Sao lưu database trước mọi thay đổi.
+- Nếu bạn muốn đánh dấu trạng thái hiện tại như một "baseline" cho EF mà không thay đổi DB:
+  - Tạo một migration rỗng tên "Baseline" trong project Infrastructure, sửa Up()/Down() để không chứa DDL, rồi (tuỳ chọn) chạy `dotnet ef database update` để EF ghi vào `__EFMigrationsHistory`. Hoặc chỉ giữ file migration rỗng trong repo mà không chạy update nếu không muốn sửa DB.
+- Nếu bạn hoàn toàn không dùng migration nữa: tiếp tục DB‑first, không chạy `dotnet ef database update` từ repo này; khi cần scaffold lại model, dùng `dotnet ef dbcontext scaffold ...`.
+- Đảm bảo `LmsDbContext` đã được cấu hình kế thừa `IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>` và gọi `base.OnModelCreating(modelBuilder)` — giữ mapping `ToTable(...)` cho các bảng AspNet* đã tồn tại.
+
+Ghi chú cuối
+- Hành động này tôn trọng schema DB thực tế và tránh rủi ro migration cố gắng tạo lại các bảng đã tồn tại.
+- Nếu sau này muốn quay lại sử dụng migrations, tạo migration baseline có ý thức hoặc khôi phục snapshot/migration tương ứng trước khi dùng `dotnet ef database update`.
