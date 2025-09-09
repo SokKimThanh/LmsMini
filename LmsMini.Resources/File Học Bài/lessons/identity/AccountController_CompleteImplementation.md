@@ -6,6 +6,29 @@ Tệp này đặt tại: `LmsMini.Resources/lessons/identity/AccountController_C
 
 ---
 
+## Mục lục
+
+- [1. Tóm tắt các endpoint cần thêm](#1-tóm-tắt-các-endpoint-cần-thêm)
+- [2. DTOs mẫu](#2-dtos-mẫu)
+- [3. IEmailSender (service)](#3-iemailsender-service-—-cần-để-gửi-token-confirmreset)
+- [4. Program.cs — thay đổi cần (LmsMini.Api)](#4-programcs-—-thay-đổi-cần-lmsminiapi)
+- [5. Mẫu code (AccountController) — snippets cho từng endpoint](#5-mẫu-code-accountcontroller-—-snippets-cho-từng-endpoint)
+  - [Change password](#change-password)
+  - [Forgot password](#forgot-password)
+  - [Reset password](#reset-password)
+  - [Confirm email](#confirm-email)
+  - [Delete account (self)](#delete-account-self)
+  - [Get / Update profile](#get--update-profile)
+  - [Role endpoints (Admin only)](#role-endpoints-admin-only)
+  - [Setup admin (chỉ lần đầu)](#setup-admin-chỉ-lần-đầu)
+- [6. Email token encoding](#6-email-token-encoding)
+- [7. RoleSeeder & AdminSeeder](#7-roleseeder--adminseeder)
+- [8. Tests](#8-tests)
+- [9. Security & Best practices](#9-security--best-practices)
+- [10. Checklist thực hiện](#10-checklist-thực-hiện)
+
+---
+
 ## 1. Tóm tắt các endpoint cần thêm
 
 - POST /api/account/change-password
@@ -44,6 +67,28 @@ Tệp này đặt tại: `LmsMini.Resources/lessons/identity/AccountController_C
 - POST /api/account/logout (tuỳ chọn)
   - Nếu dùng server-side token revocation: đánh dấu refresh token bị thu hồi
 
+- GET /api/account/roles (Admin only)
+  - Auth: [Authorize] với Admin role
+  - Trả về danh sách role
+
+- POST /api/account/roles (Admin only)
+  - Auth: [Authorize] với Admin role
+  - Body: { Name, Description }
+  - Hành động: Tạo role mới
+
+- PUT /api/account/roles/{id} (Admin only)
+  - Auth: [Authorize] với Admin role
+  - Body: { Name, Description }
+  - Hành động: Cập nhật role
+
+- DELETE /api/account/roles/{id} (Admin only)
+  - Auth: [Authorize] với Admin role
+  - Hành động: Xóa role
+
+- POST /api/account/setup-admin (chỉ lần đầu)
+  - Body: { Email, Password, Role }
+  - Hành động: Tạo admin user và gán role
+
 ---
 
 ## 2. DTOs mẫu (tạo file trong LmsMini.Api/Models hoặc LmsMini.Application)
@@ -57,6 +102,8 @@ public record ResetPasswordRequest(string Email, string Token, string NewPasswor
 public record ConfirmEmailRequest(Guid UserId, string Token);
 public record UpdateProfileRequest(string? UserName, string? DisplayName);
 public record DeleteAccountRequest(string? Password);
+public record RoleRequest(string Name, string Description);
+public record SetupAdminRequest(string Email, string Password, string Role);
 ```
 
 Gợi ý: thêm DataAnnotations nếu cần.
@@ -99,6 +146,7 @@ builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options => {
 
 - Đăng ký JWT (nếu chưa): AddAuthentication + AddJwtBearer (xem Identity_FullGuide.md)
 - Đăng ký IEmailSender stub
+- Đăng ký Authorize với policies nếu cần (ví dụ: RequireAdmin)
 
 ---
 
@@ -222,6 +270,74 @@ public async Task<IActionResult> UpdateProfile(UpdateProfileRequest req)
 }
 ```
 
+- Get, tạo, cập nhật, xóa role (Admin only)
+
+```csharp
+[HttpGet("roles")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> GetRoles()
+{
+    var roles = await _roleManager.Roles.ToListAsync();
+    return Ok(roles);
+}
+
+[HttpPost("roles")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> CreateRole(RoleRequest req)
+{
+    var role = new IdentityRole<Guid> { Name = req.Name, NormalizedName = req.Name.ToUpper() };
+    var res = await _roleManager.CreateAsync(role);
+    if (!res.Succeeded) return BadRequest(res.Errors);
+    return Ok();
+}
+
+[HttpPut("roles/{id}")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> UpdateRole(Guid id, RoleRequest req)
+{
+    var role = await _roleManager.FindByIdAsync(id.ToString());
+    if (role == null) return NotFound();
+
+    role.Name = req.Name;
+    role.NormalizedName = req.Name.ToUpper();
+    var res = await _roleManager.UpdateAsync(role);
+    if (!res.Succeeded) return BadRequest(res.Errors);
+    return Ok();
+}
+
+[HttpDelete("roles/{id}")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> DeleteRole(Guid id)
+{
+    var role = await _roleManager.FindByIdAsync(id.ToString());
+    if (role == null) return NotFound();
+
+    var res = await _roleManager.DeleteAsync(role);
+    if (!res.Succeeded) return BadRequest(res.Errors);
+    return Ok();
+}
+```
+
+- Setup admin (chỉ lần đầu)
+
+```csharp
+[HttpPost("setup-admin")]
+public async Task<IActionResult> SetupAdmin(SetupAdminRequest req)
+{
+    var adminRole = new IdentityRole<Guid> { Name = "Admin", NormalizedName = "ADMIN" };
+    await _roleManager.CreateAsync(adminRole);
+
+    var user = new AspNetUser { UserName = req.Email, Email = req.Email };
+    var res = await _userManager.CreateAsync(user, req.Password);
+    if (res.Succeeded)
+    {
+        await _userManager.AddToRoleAsync(user, adminRole.Name);
+        return Ok();
+    }
+    return BadRequest(res.Errors);
+}
+```
+
 ---
 
 ## 6. Email token encoding
@@ -258,6 +374,7 @@ var decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(encodedToken))
   - ResetPassword → cập nhật mật khẩu
   - ChangePassword success/fail
   - DeleteAccount
+  - Role CRUD
 
 ---
 
