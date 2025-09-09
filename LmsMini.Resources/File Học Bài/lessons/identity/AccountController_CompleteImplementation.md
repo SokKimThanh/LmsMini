@@ -75,26 +75,26 @@ flowchart LR
   classDef admin fill:#fff0f0,stroke:#c62828,stroke-width:1px;
 
   subgraph PublicEndpoints["Public"]
-    FP["/api/account/forgot-password"]:::public
-    RP["/api/account/reset-password"]:::public
-    CE["/api/account/confirm-email"]:::public
-    RT["/api/account/refresh-token"]:::public
-    SA["/api/account/setup-admin"]:::public
+    FP["api_forgot_password_""/api/account/forgot-password"]:::public
+    RP["api_reset_password_""/api/account/reset-password"]:::public
+    CE["api_confirm_email_""/api/account/confirm-email"]:::public
+    RT["api_refresh_token_""/api/account/refresh-token"]:::public
+    SA["api_setup_admin_""/api/account/setup-admin"]:::public
   end
 
   subgraph AuthorizedEndpoints["Authorized"]
-    CP["/api/account/change-password"]:::auth
-    ME_GET["/api/account/me (GET)"]:::auth
-    ME_PUT["/api/account/me (PUT)"]:::auth
-    DEL["/api/account (DELETE)"]:::auth
-    LO["/api/account/logout"]:::auth
+    CP["api_change_password_""/api/account/change-password"]:::auth
+    ME_GET["api_me_get_""/api/account/me (GET)"]:::auth
+    ME_PUT["api_me_put_""/api/account/me (PUT)"]:::auth
+    DEL["api_account_delete_""/api/account (DELETE)"]:::auth
+    LO["api_logout_""/api/account/logout"]:::auth
   end
 
   subgraph AdminEndpoints["Admin"]
-    GR["/api/account/roles (GET)"]:::admin
-    CR["/api/account/roles (POST)"]:::admin
-    UR["/api/account/roles/{id} (PUT)"]:::admin
-    DR["/api/account/roles/{id} (DELETE)"]:::admin
+    GR["api_roles_get_""/api/account/roles (GET)"]:::admin
+    CR["api_roles_create_""/api/account/roles (POST)"]:::admin
+    UR["api_roles_update_""/api/account/roles/{id} (PUT)"]:::admin
+    DR["api_roles_delete_""/api/account/roles/{id} (DELETE)"]:::admin
   end
 
   FP --> RP
@@ -343,7 +343,27 @@ await RoleSeeder.SeedAsync(app.Services);
 
 ### 5.1 Change password
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Change Password**
+
+Mẫu endpoint đổi mật khẩu cho user đã đăng nhập, sử dụng UserManager.ChangePasswordAsync.
+
+```csharp
+[HttpPost("change-password")]
+[Authorize]
+public async Task<IActionResult> ChangePassword(ChangePasswordRequest req)
+{
+    var user = await _userManager.GetUserAsync(User);
+    if (user == null) return Unauthorized();
+
+    var res = await _userManager.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+    if (!res.Succeeded)
+    {
+        return BadRequest(res.Errors);
+    }
+
+    return Ok();
+}
+```
 
 ### 5.2 Forgot password
 
@@ -353,7 +373,7 @@ await RoleSeeder.SeedAsync(app.Services);
 [HttpPost("forgot-password")]
 public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
 {
-    var user = await _user_manager.FindByEmailAsync(req.Email);
+    var user = await _userManager.FindByEmailAsync(req.Email);
     if (user == null) return Ok(); // không tiết lộ user tồn tại
 
     var token = await _user_manager.GeneratePasswordResetTokenAsync(user);
@@ -389,7 +409,27 @@ sequenceDiagram
 
 ### 5.3 Reset password
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Reset Password**
+
+Mẫu endpoint nhận token (Base64Url), decode và gọi ResetPasswordAsync.
+
+```csharp
+[HttpPost("reset-password")]
+public async Task<IActionResult> ResetPassword(ResetPasswordRequest req)
+{
+    var user = await _userManager.FindByEmailAsync(req.Email);
+    if (user == null) return BadRequest("Invalid request");
+
+    var token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(req.Token));
+    var res = await _userManager.ResetPasswordAsync(user, token, req.NewPassword);
+    if (!res.Succeeded)
+    {
+        return BadRequest(res.Errors);
+    }
+
+    return Ok();
+}
+```
 
 **Luồng Forgot/Reset Password**
 
@@ -414,55 +454,305 @@ sequenceDiagram
 
 ### 5.4 Confirm email
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Confirm Email**
+
+Endpoint xác nhận email bằng token do Identity sinh ra.
+
+```csharp
+[HttpPost("confirm-email")]
+public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest req)
+{
+    var user = await _userManager.FindByIdAsync(req.UserId.ToString());
+    if (user == null) return BadRequest();
+
+    var res = await _user_manager.ConfirmEmailAsync(user, req.Token);
+    if (!res.Succeeded)
+    {
+        return BadRequest(res.Errors);
+    }
+
+    return Ok();
+}
+```
 
 ### 5.5 Delete account (self)
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Delete Account**
+
+Endpoint cho phép user tự xoá tài khoản; có thể yêu cầu nhập lại mật khẩu.
+
+```csharp
+[HttpDelete]
+[Authorize]
+public async Task<IActionResult> DeleteAccount(DeleteAccountRequest? req = null)
+{
+    var user = await _userManager.GetUserAsync(User);
+    if (user == null) return Unauthorized();
+
+    if (req?.Password != null)
+    {
+        var check = await _userManager.CheckPasswordAsync(user, req.Password);
+        if (!check) return BadRequest("Invalid password");
+    }
+
+    var res = await _userManager.DeleteAsync(user);
+    if (!res.Succeeded)
+    {
+        return BadRequest(res.Errors);
+    }
+
+    return Ok();
+}
+```
 
 ### 5.6 Get / Update profile
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Get / Update Profile**
+
+Endpoints lấy và cập nhật thông tin profile của user hiện tại.
+
+```csharp
+[HttpGet("me")]
+[Authorize]
+public async Task<IActionResult> Me()
+{
+    var user = await _userManager.GetUserAsync(User);
+    if (user == null) return Unauthorized();
+    var roles = await _userManager.GetRolesAsync(user);
+    return Ok(new { user.Id, user.Email, user.UserName, Roles = roles });
+}
+
+[HttpPut("me")]
+[Authorize]
+public async Task<IActionResult> UpdateProfile(UpdateProfileRequest req)
+{
+    var user = await _userManager.GetUserAsync(User);
+    if (user == null) return Unauthorized();
+
+    if (!string.IsNullOrWhiteSpace(req.UserName)) user.UserName = req.UserName;
+    // cập nhật các trường khác nếu có
+
+    var res = await _userManager.UpdateAsync(user);
+    if (!res.Succeeded)
+    {
+        return BadRequest(res.Errors);
+    }
+
+    return Ok();
+}
+```
 
 ### 5.7 Role endpoints (Admin only)
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Role CRUD (Admin only)**
+
+Endpoints quản lý role, bảo vệ bằng role Admin.
+
+```csharp
+[HttpGet("roles")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> GetRoles()
+{
+    var roles = await _roleManager.Roles.ToListAsync();
+    return Ok(roles);
+}
+
+[HttpPost("roles")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> CreateRole(RoleRequest req)
+{
+    var role = new IdentityRole<Guid> { Name = req.Name, NormalizedName = req.Name.ToUpper() };
+    var res = await _roleManager.CreateAsync(role);
+    if (!res.Succeeded) return BadRequest(res.Errors);
+    return Ok();
+}
+
+[HttpPut("roles/{id}")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> UpdateRole(Guid id, RoleRequest req)
+{
+    var role = await _roleManager.FindByIdAsync(id.ToString());
+    if (role == null) return NotFound();
+
+    role.Name = req.Name;
+    role.NormalizedName = req.Name.ToUpper();
+    var res = await _roleManager.UpdateAsync(role);
+    if (!res.Succeeded) return BadRequest(res.Errors);
+    return Ok();
+}
+
+[HttpDelete("roles/{id}")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> DeleteRole(Guid id)
+{
+    var role = await _roleManager.FindByIdAsync(id.ToString());
+    if (role == null) return NotFound();
+
+    var res = await _roleManager.DeleteAsync(role);
+    if (!res.Succeeded) return BadRequest(res.Errors);
+    return Ok();
+}
+```
 
 ### 5.8 Setup admin (chỉ lần đầu)
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Setup Admin**
+
+Endpoint dùng lần đầu để tạo role Admin và user admin mặc định.
+
+```csharp
+[HttpPost("setup-admin")]
+public async Task<IActionResult> SetupAdmin(SetupAdminRequest req)
+{
+    var adminRole = new IdentityRole<Guid> { Name = "Admin", NormalizedName = "ADMIN" };
+    await _roleManager.CreateAsync(adminRole);
+
+    var user = new AspNetUser { UserName = req.Email, Email = req.Email };
+    var res = await _userManager.CreateAsync(user, req.Password);
+    if (res.Succeeded)
+    {
+        await _user_manager.AddToRoleAsync(user, adminRole.Name);
+        return Ok();
+    }
+    return BadRequest(res.Errors);
+}
+```
 
 ### 5.9 Login / Register — cập nhật để phát refresh token và gán role
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Register (thêm gán role)**
+
+```csharp
+[HttpPost("register")]
+public async Task<IActionResult> Register(RegisterRequest req)
+{
+    var user = new AspNetUser
+    {
+        UserName = req.Email,
+        Email = req.Email
+    };
+    var result = await _userManager.CreateAsync(user, req.Password);
+    if (!result.Succeeded)
+    {
+        return BadRequest(result.Errors);
+    }
+
+    // Gán role mặc định
+    await _userManager.AddToRoleAsync(user, "Learner");
+
+    return Ok();
+}
+```
+
+**Code mẫu: Login (trả access token + refresh token)**
+
+```csharp
+[HttpPost("login")]
+public async Task<IActionResult> Login(LoginRequest req)
+{
+    var user = await _userManager.FindByEmailAsync(req.Email);
+    if (user == null) return Unauthorized();
+
+    var pwOk = await _userManager.CheckPasswordAsync(user, req.Password);
+    if (!pwOk) return Unauthorized();
+
+    var roles = await _userManager.GetRolesAsync(user);
+    var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty)
+    };
+    claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+
+    var jwtKey = _config["Jwt:Key"];
+    if (string.IsNullOrWhiteSpace(jwtKey)) return StatusCode(500, "JWT key is not configured.");
+
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    var issuer = _config["Jwt:Issuer"];
+    var audience = _config["Jwt:Audience"];
+    var expiresInMinutes = 60;
+    if (int.TryParse(_config["Jwt:ExpiresInMinutes"], out var minutes)) expiresInMinutes = minutes;
+
+    var tokenDescriptor = new JwtSecurityToken(
+        issuer: issuer,
+        audience: audience,
+        claims: claims,
+        expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
+        signingCredentials: creds
+    );
+
+    var accessToken = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+
+    // tạo refresh token và lưu vào DB
+    var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+    var rt = new RefreshToken { Token = refreshToken, UserId = user.Id, Expires = DateTime.UtcNow.AddDays(7) };
+    _db.RefreshTokens.Add(rt);
+    await _db.SaveChangesAsync();
+
+    return Ok(new { accessToken, refreshToken });
+}
+```
+
+> Ghi chú: `_db` là instance của `LmsDbContext` có `DbSet<RefreshToken> RefreshTokens`.
 
 ### 5.10 Refresh token & Logout (code mẫu hoàn chỉnh)
 
-*Đã mô tả ở phần trước.* (giữ nguyên code)
+**Code mẫu: Refresh Token & Logout**
 
-**Luồng Refresh Token & Logout**
+```csharp
+[HttpPost("refresh-token")]
+public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
+{
+    var stored = await _db.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
+    if (stored == null || stored.IsRevoked || stored.Expires < DateTime.UtcNow) return Unauthorized();
 
-Minh họa quá trình đổi refresh token lấy access token mới và thu hồi refresh token khi logout.
+    var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
+    if (user == null) return Unauthorized();
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as "User/Client"
-  participant API_Server as "API Server"
-  participant DB as "Database"
+    var roles = await _userManager.GetRolesAsync(user);
+    var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty)
+    };
+    claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
-  U->>API_Server: POST /api/account/refresh-token { refreshToken }
-  API_Server->>DB: Query refresh token
-  DB-->>API_Server: token record
-  API_Server-->>API_Server: validate token, create new access token
-  API_Server->>DB: revoke old token, store new refresh token
-  API_Server-->>U: { accessToken, refreshToken }
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(
+        issuer: _config["Jwt:Issuer"],
+        audience: _config["Jwt:Audience"],
+        claims: claims,
+        expires: DateTime.UtcNow.AddMinutes(int.Parse(_config["Jwt:ExpiresInMinutes"] ?? "60")),
+        signingCredentials: creds
+    );
+    var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-  U->>API_Server: POST /api/account/logout { refreshToken }
-  API_Server->>DB: Query token
-  DB-->>API_Server: token record
-  API_Server->>DB: mark token revoked
-  API_Server-->>U: 200 OK
+    stored.IsRevoked = true;
+    var newRt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+    var rtEntity = new RefreshToken { Token = newRt, UserId = stored.UserId, Expires = DateTime.UtcNow.AddDays(7) };
+    _db.RefreshTokens.Add(rtEntity);
+    await _db.SaveChangesAsync();
+
+    return Ok(new { accessToken, refreshToken = newRt });
+}
+
+[HttpPost("logout")]
+[Authorize]
+public async Task<IActionResult> Logout(LogoutRequest req)
+{
+    var stored = await _db.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
+    if (stored != null)
+    {
+        stored.IsRevoked = true;
+        await _db.SaveChangesAsync();
+    }
+    return Ok();
+}
 ```
 
 ---
