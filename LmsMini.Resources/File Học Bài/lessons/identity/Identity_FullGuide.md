@@ -266,24 +266,23 @@ Chú ý: kiểm tra SQL migration trước khi apply, đặc biệt nếu DB hi�
 ## 7.1 Handling pre-existing AspNetUsers table
 
 Nếu database của bạn đã có bảng `AspNetUsers` (ví dụ bạn đã tạo thủ công via `lsm-db.sql`) nhưng các bảng Identity khác (AspNetRoles, AspNetUserRoles, ...) chưa tồn tại, EF migration mặc định sẽ cố tạo lại `AspNetUsers` và sẽ thất bại với lỗi kiểu "There is already an object named 'AspNetUsers' in the database.".
+ 
+## 7.2 Chuyển sang DB‑first (đã dừng dùng migration) — hành động thực tế
 
-Các cách an toàn để xử lý (chọn 1):
+Lưu ý: phần này ghi lại quyết định và các thay đổi thực tế đã được thực hiện trong workspace khi tác giả (bạn) muốn dừng hệ thống migration và làm theo hướng DB‑first.
 
-A) Keep existing AspNetUsers and let migration create the rest (recommended when you must preserve user data)
-- Manual approach: run SQL to create the missing Identity tables (AspNetRoles, AspNetRoleClaims, AspNetUserClaims, AspNetUserLogins, AspNetUserTokens, AspNetUserRoles) using DDL matching migration Up().
-- Or edit the migration file to skip CreateTable("AspNetUsers") and skip creating indexes on AspNetUsers (so EF will create only missing tables). Then run `dotnet ef database update`.
-- After that, ensure `__EFMigrationsHistory` contains the migration record (EF will insert it after successful update).
+Tình huống và ý định
+- Bạn đã có một database hoàn chỉnh (schema đã scaffold/được tạo bằng script) và muốn dùng DB‑first: giữ schema hiện có và tích hợp Identity qua lớp scaffolded `AspNetUser` + `LmsDbContext` kế thừa `IdentityDbContext<...>`.
+- Mục tiêu: ngưng chạy/áp migration EF Core, loại bỏ các file migration hiện có và model snapshot, tiếp tục phát triển dựa trên DB hiện có.
 
-B) Baseline migration (record as applied without changing DB)
-- If you manually ensured schema matches the migration, you can insert a row into `__EFMigrationsHistory` with the migration id and product version to mark it applied. Only do this if you are sure schema matches migration.
+Hành động đã thực hiện (ghi rõ, đã thực hiện trong workspace):
+- Xóa các migration không cần thiết từ thư mục LmsMini.Infrastructure/Migrations, ví dụ các file migration liên quan đến Initial/Init_Identity (ví dụ: `20250909033344_InitialIdentity.*` và `20250909034045_Init_Identity.*`).
+- Xóa file model snapshot (`LmsDbContextModelSnapshot.cs`) để dọn sạch trạng thái migrations trong source tree.
+- Chạy build để xác nhận project vẫn compile sau khi xóa (build thành công).
 
-C) Let EF manage everything (drop existing AspNetUsers)
-- If user data is not needed, drop `AspNetUsers` and re-run `dotnet ef database update` so EF will create the full Identity schema. Backup DB first.
-
-Checklist before applying any option
-- Backup the database.
-- Compare real `AspNetUsers` columns and indexes with EF model (INFORMATION_SCHEMA.COLUMNS). Required columns include Id (uniqueidentifier PK), NormalizedUserName, NormalizedEmail, PasswordHash, etc.
-- If you edit migration files, review Up()/Down() carefully and keep Down() symmetric.
+Tác động
+- Không còn migration files trong project Infrastructure → EF sẽ không áp migration từ repo nữa.
+- Database hiện có được coi là nguồn chân thực (source of truth). EF được dùng như ORM (DB‑first) dựa trên các entity scaffolded hiện có.
 
 ---
 
@@ -381,30 +380,4 @@ Dưới đây là danh sách các bước cụ thể cần làm tiếp để ho�
 
 Thực hiện các bước trên theo thứ tự sẽ giúp bạn hoàn tất tích hợp Identity an toàn và có thể chạy các flow register/login/role seeding một cách tin cậy. Nếu muốn, tôi có thể tạo các file mẫu (DesignTimeFactory, RoleSeeder, AdminSeeder, AccountController, EmailSender, và JWT config) trong workspace và chạy build/test — xác nhận hành động bạn muốn để tôi thực hiện tiếp.
 
-## 7.2 Chuyển sang DB‑first (đã dừng dùng migration) — hành động thực tế
-
-Lưu ý: phần này ghi lại quyết định và các thay đổi thực tế đã được thực hiện trong workspace khi tác giả (bạn) muốn dừng hệ thống migration và làm theo hướng DB‑first.
-
-Tình huống và ý định
-- Bạn đã có một database hoàn chỉnh (schema đã scaffold/được tạo bằng script) và muốn dùng DB‑first: giữ schema hiện có và tích hợp Identity qua lớp scaffolded `AspNetUser` + `LmsDbContext` kế thừa `IdentityDbContext<...>`.
-- Mục tiêu: ngưng chạy/áp migration EF Core, loại bỏ các file migration hiện có và model snapshot, tiếp tục phát triển dựa trên DB hiện có.
-
-Hành động đã thực hiện (ghi rõ, đã thực hiện trong workspace):
-- Xóa các migration không cần thiết từ thư mục LmsMini.Infrastructure/Migrations, ví dụ các file migration liên quan đến Initial/Init_Identity (ví dụ: `20250909033344_InitialIdentity.*` và `20250909034045_Init_Identity.*`).
-- Xóa file model snapshot (`LmsDbContextModelSnapshot.cs`) để dọn sạch trạng thái migrations trong source tree.
-- Chạy build để xác nhận project vẫn compile sau khi xóa (build thành công).
-
-Tác động
-- Không còn migration files trong project Infrastructure → EF sẽ không áp migration từ repo nữa.
-- Database hiện có được coi là nguồn chân thực (source of truth). EF được dùng như ORM (DB‑first) dựa trên các entity scaffolded hiện có.
-
-Khuyến nghị tiếp theo (an toàn):
-- Sao lưu database trước mọi thay đổi.
-- Nếu bạn muốn đánh dấu trạng thái hiện tại như một "baseline" cho EF mà không thay đổi DB:
-  - Tạo một migration rỗng tên "Baseline" trong project Infrastructure, sửa Up()/Down() để không chứa DDL, rồi (tuỳ chọn) chạy `dotnet ef database update` để EF ghi vào `__EFMigrationsHistory`. Hoặc chỉ giữ file migration rỗng trong repo mà không chạy update nếu không muốn sửa DB.
-- Nếu bạn hoàn toàn không dùng migration nữa: tiếp tục DB‑first, không chạy `dotnet ef database update` từ repo này; khi cần scaffold lại model, dùng `dotnet ef dbcontext scaffold ...`.
-- Đảm bảo `LmsDbContext` đã được cấu hình kế thừa `IdentityDbContext<AspNetUser, IdentityRole<Guid>, Guid>` và gọi `base.OnModelCreating(modelBuilder)` — giữ mapping `ToTable(...)` cho các bảng AspNet* đã tồn tại.
-
-Ghi chú cuối
-- Hành động này tôn trọng schema DB thực tế và tránh rủi ro migration cố gắng tạo lại các bảng đã tồn tại.
-- Nếu sau này muốn quay lại sử dụng migrations, tạo migration baseline có ý thức hoặc khôi phục snapshot/migration tương ứng trước khi dùng `dotnet ef database update`.
+shot/migration tương ứng trước khi dùng `dotnet ef database update`.
