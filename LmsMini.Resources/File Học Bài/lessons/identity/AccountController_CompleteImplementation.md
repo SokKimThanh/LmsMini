@@ -74,34 +74,35 @@ flowchart LR
   classDef auth fill:#e8f4ff,stroke:#1565c0,stroke-width:1px;
   classDef admin fill:#fff0f0,stroke:#c62828,stroke-width:1px;
 
-  subgraph PublicEndpoints[Public]
-    FP([/api/account/forgot-password]):::public
-    RP([/api/account/reset-password]):::public
-    CE([/api/account/confirm-email]):::public
-    RT([/api/account/refresh-token]):::public
-    SA([/api/account/setup-admin]):::public
+  subgraph PublicEndpoints["Public"]
+    FP["/api/account/forgot-password"]:::public
+    RP["/api/account/reset-password"]:::public
+    CE["/api/account/confirm-email"]:::public
+    RT["/api/account/refresh-token"]:::public
+    SA["/api/account/setup-admin"]:::public
   end
 
-  subgraph AuthorizedEndpoints[Authorized]
-    CP([/api/account/change-password]):::auth
-    ME([/api/account/me (GET)]):::auth
-    UME([/api/account/me (PUT)]):::auth
-    DEL([/api/account (DELETE)]):::auth
-    LO([/api/account/logout]):::auth
+  subgraph AuthorizedEndpoints["Authorized"]
+    CP["/api/account/change-password"]:::auth
+    ME_GET["/api/account/me (GET)"]:::auth
+    ME_PUT["/api/account/me (PUT)"]:::auth
+    DEL["/api/account (DELETE)"]:::auth
+    LO["/api/account/logout"]:::auth
   end
 
-  subgraph AdminEndpoints[Admin]
-    GR([/api/account/roles (GET)]):::admin
-    CR([/api/account/roles (POST)]):::admin
-    UR([/api/account/roles/{id} (PUT)]):::admin
-    DR([/api/account/roles/{id} (DELETE)]):::admin
+  subgraph AdminEndpoints["Admin"]
+    GR["/api/account/roles (GET)"]:::admin
+    CR["/api/account/roles (POST)"]:::admin
+    UR["/api/account/roles/{id} (PUT)"]:::admin
+    DR["/api/account/roles/{id} (DELETE)"]:::admin
   end
 
-  PublicEndpoints --> AuthorizedEndpoints
-  AuthorizedEndpoints --> AdminEndpoints
   FP --> RP
+  RP --> RT
   RT --> LO
   SA --> CR
+  PublicEndpoints --> AuthorizedEndpoints
+  AuthorizedEndpoints --> AdminEndpoints
 ```
 
 ---
@@ -371,19 +372,19 @@ Minh họa các bước từ khi người dùng yêu cầu quên mật khẩu đ
 ```mermaid
 sequenceDiagram
   autonumber
-  participant U as User
-  participant API as API (Forgot)
-  participant Email as EmailSender
-  participant API2 as API (Reset)
+  participant U as "User"
+  participant API_Forgot as "API (Forgot)"
+  participant Email as "EmailSender"
+  participant API_Reset as "API (Reset)"
 
-  U->>API: POST /api/account/forgot-password { email }
-  API-->>API: GeneratePasswordResetToken
-  API->>Email: SendEmail(link with token)
+  U->>API_Forgot: POST /api/account/forgot-password { email }
+  API_Forgot-->>API_Forgot: GeneratePasswordResetToken
+  API_Forgot->>Email: SendEmail(link with token)
   Email-->>U: Email with reset link
   Note over U: User clicks link in email
-  U->>API2: GET/POST /reset-password (token)
-  API2-->>API2: Decode token, ResetPasswordAsync
-  API2-->>U: 200 OK or 400 Error
+  U->>API_Reset: GET/POST /reset-password (token)
+  API_Reset-->>API_Reset: Decode token, ResetPasswordAsync
+  API_Reset-->>U: 200 OK or 400 Error
 ```
 
 ### 5.3 Reset password
@@ -397,18 +398,18 @@ Minh họa các bước từ khi người dùng yêu cầu quên mật khẩu đ
 ```mermaid
 sequenceDiagram
   autonumber
-  participant U as User
-  participant API as API (Forgot)
-  participant Email as EmailSender
-  participant API2 as API (Reset)
+  participant U as "User"
+  participant API_Forgot as "API (Forgot)"
+  participant Email as "EmailSender"
+  participant API_Reset as "API (Reset)"
 
-  U->>API: POST /api/account/forgot-password { email }
-  API-->>API: GeneratePasswordResetToken
-  API->>Email: SendEmail(link with token)
+  U->>API_Forgot: POST /api/account/forgot-password { email }
+  API_Forgot-->>API_Forgot: GeneratePasswordResetToken
+  API_Forgot->>Email: SendEmail(link with token)
   Email-->>U: Email with reset link
-  U->>API2: POST /api/account/reset-password { email, token, newPassword }
-  API2-->>API2: ResetPasswordAsync(token, newPassword)
-  API2-->>U: 200 OK or 400 Error
+  U->>API_Reset: POST /api/account/reset-password { email, token, newPassword }
+  API_Reset-->>API_Reset: ResetPasswordAsync(token, newPassword)
+  API_Reset-->>U: 200 OK or 400 Error
 ```
 
 ### 5.4 Confirm email
@@ -446,22 +447,22 @@ Minh họa quá trình đổi refresh token lấy access token mới và thu h�
 ```mermaid
 sequenceDiagram
   autonumber
-  participant U as User/Client
-  participant API as API Server
-  participant DB as Database
+  participant U as "User/Client"
+  participant API_Server as "API Server"
+  participant DB as "Database"
 
-  U->>API: POST /api/account/refresh-token { refreshToken }
-  API->>DB: Find refresh token
-  DB-->>API: token record
-  API-->>API: validate token, create new access token
-  API->>DB: revoke old token, store new refresh token
-  API-->>U: { accessToken, refreshToken }
+  U->>API_Server: POST /api/account/refresh-token { refreshToken }
+  API_Server->>DB: Query refresh token
+  DB-->>API_Server: token record
+  API_Server-->>API_Server: validate token, create new access token
+  API_Server->>DB: revoke old token, store new refresh token
+  API_Server-->>U: { accessToken, refreshToken }
 
-  U->>API: POST /api/account/logout { refreshToken }
-  API->>DB: Find token
-  DB-->>API: token record
-  API->>DB: mark token revoked
-  API-->>U: 200 OK
+  U->>API_Server: POST /api/account/logout { refreshToken }
+  API_Server->>DB: Query token
+  DB-->>API_Server: token record
+  API_Server->>DB: mark token revoked
+  API_Server-->>U: 200 OK
 ```
 
 ---
@@ -505,12 +506,12 @@ flowchart TD
   classDef seed fill:#fff7e6,stroke:#ff8f00,stroke-width:1px;
   classDef action fill:#e8f4ff,stroke:#1565c0,stroke-width:1px;
 
-  Start([Start])
+  Start("Start")
   CheckRoles{Roles exist?}
-  CreateRoles[/Create Admin, Instructor, Learner/]
+  CreateRoles["Create Admin, Instructor, Learner"]
   CheckAdmin{Admin user exists?}
-  CreateAdmin[/Create admin user & assign Admin role/]
-  End([End])
+  CreateAdmin["Create admin user & assign Admin role"]
+  End("End")
 
   Start --> CheckRoles
   CheckRoles -- no --> CreateRoles
