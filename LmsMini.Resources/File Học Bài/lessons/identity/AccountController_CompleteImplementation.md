@@ -1,26 +1,27 @@
 ﻿# Hướng dẫn triển khai đầy đủ AccountController & các flow Identity
 
-Mục tiêu: bổ sung đầy đủ các endpoint quản lý tài khoản (change password, forgot/reset password, confirm email, delete account, profile, refresh token/revoke) và hướng dẫn các thay đổi cần thiết trong project để chạy được.
+Mục tiêu: bổ sung đầy đủ các endpoint quản lý tài khoản (change password, forgot/reset password, confirm email, delete account, profile, refresh token/revoke, role management) và hướng dẫn các thay đổi cần thiết trong dự án để chạy được.
 
-Tệp này đặt tại: `LmsMini.Resources/lessons/identity/AccountController_CompleteImplementation.md`
+Tệp: `LmsMini.Resources/lessons/identity/AccountController_CompleteImplementation.md`
 
 ---
 
 ## Mục lục
 
 - [1. Tóm tắt các endpoint cần thêm](#1-tóm-tắt-các-endpoint-cần-thêm)
+  - [1.1 Bảng tóm tắt endpoint](#11-bảng-tóm-tắt-endpoint)
 - [2. DTOs mẫu](#2-dtos-mẫu)
-- [3. IEmailSender (service)](#3-iemailsender-service-—-cần-để-gửi-token-confirmreset)
+- [3. IEmailSender (service)](#3-iemailsender-service)
 - [4. Program.cs — thay đổi cần (LmsMini.Api)](#4-programcs-—-thay-đổi-cần-lmsminiapi)
 - [5. Mẫu code (AccountController) — snippets cho từng endpoint](#5-mẫu-code-accountcontroller-—-snippets-cho-từng-endpoint)
-  - [Change password](#change-password)
-  - [Forgot password](#forgot-password)
-  - [Reset password](#reset-password)
-  - [Confirm email](#confirm-email)
-  - [Delete account (self)](#delete-account-self)
-  - [Get / Update profile](#get--update-profile)
-  - [Role endpoints (Admin only)](#role-endpoints-admin-only)
-  - [Setup admin (chỉ lần đầu)](#setup-admin-chỉ-lần-đầu)
+  - [5.1 Change password](#51-change-password)
+  - [5.2 Forgot password](#52-forgot-password)
+  - [5.3 Reset password](#53-reset-password)
+  - [5.4 Confirm email](#54-confirm-email)
+  - [5.5 Delete account (self)](#55-delete-account-self)
+  - [5.6 Get / Update profile](#56-get--update-profile)
+  - [5.7 Role endpoints (Admin only)](#57-role-endpoints-admin-only)
+  - [5.8 Setup admin (chỉ lần đầu)](#58-setup-admin-chỉ-lần-đầu)
 - [6. Email token encoding](#6-email-token-encoding)
 - [7. RoleSeeder & AdminSeeder](#7-roleseeder--adminseeder)
 - [8. Tests](#8-tests)
@@ -31,69 +32,35 @@ Tệp này đặt tại: `LmsMini.Resources/lessons/identity/AccountController_C
 
 ## 1. Tóm tắt các endpoint cần thêm
 
-- POST /api/account/change-password
-  - Auth: [Authorize]
-  - Body: { CurrentPassword, NewPassword }
-  - Hành động: _userManager.ChangePasswordAsync(user, current, new)_
+Phần này liệt kê các endpoint để triển khai tính năng quản lý tài khoản và role.
 
-- POST /api/account/forgot-password
-  - Body: { Email }
-  - Hành động: _userManager.GeneratePasswordResetTokenAsync(user)_ + gửi email chứa token (url encode)
+### 1.1 Bảng tóm tắt endpoint
 
-- POST /api/account/reset-password
-  - Body: { Email, Token, NewPassword }
-  - Hành động: _userManager.ResetPasswordAsync(user, token, new)_
-
-- POST /api/account/confirm-email
-  - Body: { UserId, Token }
-  - Hành động: _userManager.ConfirmEmailAsync(user, token)_
-
-- DELETE /api/account
-  - Auth: [Authorize]
-  - Optional body: { Password } (xác thực lại) hoặc admin delete by id
-  - Hành động: _userManager.DeleteAsync(user)_ (hoặc soft delete theo SDD)
-
-- GET /api/account/me
-  - Auth: [Authorize]
-  - Trả về profile cơ bản (id, email, userName, roles)
-
-- PUT /api/account/me
-  - Auth: [Authorize]
-  - Update profile (display name, avatar, ...) → _userManager.UpdateAsync(user)_
-
-- POST /api/account/refresh-token (tuỳ chọn)
-  - Nếu dùng refresh tokens server-side: validate + issue new access token
-
-- POST /api/account/logout (tuỳ chọn)
-  - Nếu dùng server-side token revocation: đánh dấu refresh token bị thu hồi
-
-- GET /api/account/roles (Admin only)
-  - Auth: [Authorize] với Admin role
-  - Trả về danh sách role
-
-- POST /api/account/roles (Admin only)
-  - Auth: [Authorize] với Admin role
-  - Body: { Name, Description }
-  - Hành động: Tạo role mới
-
-- PUT /api/account/roles/{id} (Admin only)
-  - Auth: [Authorize] với Admin role
-  - Body: { Name, Description }
-  - Hành động: Cập nhật role
-
-- DELETE /api/account/roles/{id} (Admin only)
-  - Auth: [Authorize] với Admin role
-  - Hành động: Xóa role
-
-- POST /api/account/setup-admin (chỉ lần đầu)
-  - Body: { Email, Password, Role }
-  - Hành động: Tạo admin user và gán role
+| HTTP | URL | Auth | Mô tả |
+|---:|---|---|---|
+| POST | /api/account/change-password | Authorized | Đổi mật khẩu khi đã đăng nhập |
+| POST | /api/account/forgot-password | Public | Gửi email chứa token reset (không tiết lộ user tồn tại) |
+| POST | /api/account/reset-password | Public | Đặt lại mật khẩu bằng token |
+| POST | /api/account/confirm-email | Public | Xác nhận email bằng token |
+| DELETE | /api/account | Authorized | Xóa tài khoản của chính user (hoặc admin xóa khác) |
+| GET | /api/account/me | Authorized | Lấy profile hiện tại |
+| PUT | /api/account/me | Authorized | Cập nhật profile |
+| POST | /api/account/refresh-token | Public/Authorized | (Tùy) Cấp mới access token bằng refresh token |
+| POST | /api/account/logout | Authorized | (Tùy) Thu hồi refresh token |
+| GET | /api/account/roles | Admin only | Lấy danh sách role |
+| POST | /api/account/roles | Admin only | Tạo role mới |
+| PUT | /api/account/roles/{id} | Admin only | Cập nhật role |
+| DELETE | /api/account/roles/{id} | Admin only | Xóa role |
+| POST | /api/account/setup-admin | Public (one-time) | Tạo admin mặc định & role (chỉ dùng lần đầu) |
 
 ---
 
-## 2. DTOs mẫu (tạo file trong LmsMini.Api/Models hoặc LmsMini.Application)
+## 2. DTOs mẫu
 
-Lưu ý: một số DTO có thể đã tồn tại trong project (ví dụ `RegisterRequest`, `LoginRequest` được dùng ở controller hiện tại). Ở danh sách dưới, tôi đánh dấu [EXISTING] cho DTO mà bạn nên kiểm tra/không tạo lại, và [CREATE] cho DTO mới cần tạo nếu chưa có.
+> Ghi chú: Một số DTO đã có sẵn trong project (ví dụ RegisterRequest, LoginRequest). Ở danh sách dưới, tôi **đánh dấu**:
+>
+> - **[EXISTING]** — kiểm tra trong dự án; không tạo lại nếu đã có.
+> - **[CREATE]** — tạo mới trong `LmsMini.Api/Models` nếu chưa tồn tại.
 
 ```csharp
 // [EXISTING] => kiểm tra trong dự án, không tạo nếu đã có
@@ -111,13 +78,22 @@ public record RoleRequest(string Name, string Description);                     
 public record SetupAdminRequest(string Email, string Password, string Role);     // [CREATE]
 ```
 
-Gợi ý: thêm DataAnnotations nếu cần (e.g. [Required], [EmailAddress], [StringLength]).
+**Khi nào dùng**:
+
+- [EXISTING] — đã dùng trong controller hiện tại (Register/Login). Không tạo lại.
+- [CREATE] — cần cho các flow: đổi mật khẩu, quên/mật khẩu/confirm email, quản lý role, setup admin, cập nhật profile, xóa tài khoản.
+
+*Gợi ý:* thêm annotation như `[Required]`, `[EmailAddress]`, `[StringLength]` tuỳ chính sách mật khẩu và validate input.
 
 ---
 
-## 3. IEmailSender (service) — cần để gửi token confirm/reset
+## 3. IEmailSender (service)
 
-- Tạo interface trong Infrastructure:
+Mục đích: gửi email trong các flow *forgot-password* và *confirm-email*.
+
+### 3.1 Interface
+
+Tạo interface trong dự án Infrastructure:
 
 ```csharp
 public interface IEmailSender
@@ -126,19 +102,25 @@ public interface IEmailSender
 }
 ```
 
-- Tạo implementation dev stub (log to console / Serilog) trong LmsMini.Infrastructure/Services/EmailSender.cs và đăng ký DI:
+### 3.2 Implementation dev stub
+
+Ví dụ dev stub (ghi log hoặc gửi console) nằm tại `LmsMini.Infrastructure/Services/ConsoleEmailSender.cs`. Đăng ký DI:
 
 ```csharp
 builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
 ```
 
-Production: thay bằng SMTP provider.
+> Trong production: thay bằng SMTP provider hoặc dịch vụ email (SendGrid, SES...).
 
 ---
 
 ## 4. Program.cs — thay đổi cần (LmsMini.Api)
 
-- Đăng ký Identity nếu chưa có:
+Trước khi sử dụng các API, cần đăng ký Identity, token providers và authentication.
+
+### 4.1 Đăng ký Identity
+
+Đoạn mẫu thêm vào `Program.cs`:
 
 ```csharp
 builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options => {
@@ -149,17 +131,29 @@ builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options => {
 .AddDefaultTokenProviders();
 ```
 
-- Đăng ký JWT (nếu chưa): AddAuthentication + AddJwtBearer (xem Identity_FullGuide.md)
-- Đăng ký IEmailSender stub
-- Đăng ký Authorize với policies nếu cần (ví dụ: RequireAdmin)
+### 4.2 JWT Bearer (nếu dùng JWT)
+
+Đăng ký authentication + JWT bearer (tham khảo `Identity_FullGuide.md`).
+
+### 4.3 Đăng ký IEmailSender
+
+```csharp
+builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+```
+
+### 4.4 Policies (tuỳ chọn)
+
+Đăng ký policy hoặc role-based authorization nếu muốn dùng `[Authorize(Roles = "Admin")]`.
 
 ---
 
 ## 5. Mẫu code (AccountController) — snippets cho từng endpoint
 
-Lưu ý: controller hiện có register/login. Thêm methods sau (tóm tắt):
+> Mỗi đoạn code kèm mô tả ngắn trước khi hiển thị code. Giữ nguyên logic và nội dung kỹ thuật từ bản gốc.
 
-- Change password
+### 5.1 Change password
+
+**Mô tả:** Endpoint cho phép user đã đăng nhập đổi mật khẩu hiện tại.
 
 ```csharp
 [HttpPost("change-password")]
@@ -175,7 +169,9 @@ public async Task<IActionResult> ChangePassword(ChangePasswordRequest req)
 }
 ```
 
-- Forgot password
+### 5.2 Forgot password
+
+**Mô tả:** Tạo token đặt lại mật khẩu và gửi email (không tiết lộ user tồn tại).
 
 ```csharp
 [HttpPost("forgot-password")]
@@ -193,7 +189,11 @@ public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
 }
 ```
 
-- Reset password
+> **Lưu ý:** cần `using Microsoft.AspNetCore.WebUtilities;` để dùng `WebEncoders`.
+
+### 5.3 Reset password
+
+**Mô tả:** Nhận token (Base64Url) và đặt mật khẩu mới.
 
 ```csharp
 [HttpPost("reset-password")]
@@ -209,7 +209,9 @@ public async Task<IActionResult> ResetPassword(ResetPasswordRequest req)
 }
 ```
 
-- Confirm email
+### 5.4 Confirm email
+
+**Mô tả:** Xác nhận email bằng token (thường dùng sau đăng ký).
 
 ```csharp
 [HttpPost("confirm-email")]
@@ -224,7 +226,9 @@ public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest req)
 }
 ```
 
-- Delete account (self)
+### 5.5 Delete account (self)
+
+**Mô tả:** Xóa tài khoản của chính user đã đăng nhập. Có thể yêu cầu nhập lại mật khẩu.
 
 ```csharp
 [HttpDelete]
@@ -246,7 +250,9 @@ public async Task<IActionResult> DeleteAccount(DeleteAccountRequest? req = null)
 }
 ```
 
-- Get / Update profile
+### 5.6 Get / Update profile
+
+**Mô tả:** Lấy thông tin profile hiện tại và cập nhật các trường cho phép.
 
 ```csharp
 [HttpGet("me")]
@@ -275,7 +281,9 @@ public async Task<IActionResult> UpdateProfile(UpdateProfileRequest req)
 }
 ```
 
-- Get, tạo, cập nhật, xóa role (Admin only)
+### 5.7 Role endpoints (Admin only)
+
+**Mô tả:** CRUD cho role; chỉ Admin mới được phép (hoặc policy tương đương).
 
 ```csharp
 [HttpGet("roles")]
@@ -323,7 +331,9 @@ public async Task<IActionResult> DeleteRole(Guid id)
 }
 ```
 
-- Setup admin (chỉ lần đầu)
+### 5.8 Setup admin (chỉ lần đầu)
+
+**Mô tả:** Tạo role **Admin** và một user admin mặc định (dùng khi mới triển khai DB lần đầu).
 
 ```csharp
 [HttpPost("setup-admin")]
@@ -343,70 +353,105 @@ public async Task<IActionResult> SetupAdmin(SetupAdminRequest req)
 }
 ```
 
+> Thay `await _role_manager.CreateAsync` bằng `await _roleManager.CreateAsync` nếu đặt tên biến là `_roleManager` trong constructor.
+
 ---
 
 ## 6. Email token encoding
 
-- Token chứa ký tự đặc biệt, dùng Base64Url encode khi truyền trong URL:
+**Mô tả:** Token do Identity sinh có ký tự đặc biệt — *không* truyền thẳng trong URL. Dùng Base64Url encode/decode.
 
 ```csharp
-var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+var token = await _user_manager.GeneratePasswordResetTokenAsync(user);
 var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-```
 
-- Khi nhận lại:
-
-```csharp
+// Khi nhận lại
 var decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(encodedToken));
 ```
 
-(Requires Microsoft.AspNetCore.WebUtilities)
+> Cần `using Microsoft.AspNetCore.WebUtilities;`.
 
 ---
 
 ## 7. RoleSeeder & AdminSeeder
 
-- Tạo seeder để tạo role: Admin, Instructor, Learner; và 1 admin user mặc định (config secret).
-- Gọi seeder sau khi `var app = builder.Build();`.
+**Mô tả:** Seeder tạo các role mặc định (Admin, Instructor, Learner) và (tuỳ) tạo admin user.
+
+**Ví dụ RoleSeeder:**
+
+```csharp
+public static class RoleSeeder
+{
+    public static async Task SeedAsync(IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var rm = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+        var roles = new[] { "Admin", "Instructor", "Learner" };
+        foreach (var r in roles)
+        {
+            if (!await rm.RoleExistsAsync(r)) await rm.CreateAsync(new IdentityRole<Guid>(r));
+        }
+    }
+}
+```
+
+**Gọi seeder** sau `var app = builder.Build();`:
+
+```csharp
+await RoleSeeder.SeedAsync(app.Services);
+```
+
+**AdminSeeder (tuỳ chọn):** tạo user admin mặc định và gán role Admin; lưu credentials trong config hoặc user-secrets (không commit vào repo).
 
 ---
 
 ## 8. Tests
 
-- Viết integration tests cho:
-  - Register + Login → trả JWT
-  - ForgotPassword → token generate (mock IEmailSender)
-  - ResetPassword → cập nhật mật khẩu
-  - ChangePassword success/fail
-  - DeleteAccount
-  - Role CRUD
+Viết integration tests cho các flow sau:
+
+- Register + Login → trả JWT.
+- ForgotPassword → token generate (mock `IEmailSender`).
+- ResetPassword → cập nhật mật khẩu.
+- ChangePassword (thành công / lỗi).
+- DeleteAccount.
+- Role CRUD (Admin endpoints).
+
+*Gợi ý:* mock `UserManager`/`RoleManager` hoặc dùng test server + in-memory DB.
 
 ---
 
 ## 9. Security & Best practices
 
-- Không trả về chi tiết (email exists) trong forgot-password.
-- Dùng RequireConfirmedEmail tuỳ yêu cầu: nếu bật, block login cho user chưa confirm.
-- Không commit JWT secrets; dùng user-secrets / environment variables.
-- Token expiry ngắn; refresh token an toàn.
-- Xác thực lại (reauth) cho các hành động quan trọng (delete, change password) nếu cần.
+Danh sách các điểm bảo mật cần chú ý:
+
+- **Không tiết lộ** user tồn tại trong phản hồi của *forgot-password* (always return 200 Ok).
+- **RequireConfirmedEmail**: bật nếu muốn chặn login khi chưa xác thực email.
+- **Password policy**: đặt chính sách mật khẩu phù hợp môi trường production (length, complexity).
+- **Secrets**: lưu `Jwt:Key`/admin passwords trong user-secrets hoặc biến môi trường — **không** commit vào repo.
+- **Token expiry**: access token nên có thời hạn ngắn (ví dụ 1 giờ); dùng refresh token an toàn nếu cần.
+- **Re-authentication**: yêu cầu nhập lại mật khẩu cho hành động nhạy cảm (xóa tài khoản, đổi mật khẩu lớn).
+- **Logging & Monitoring**: log các sự kiện đăng nhập thất bại, reset token requests, admin role changes.
+- **Input validation**: dùng DataAnnotations và server-side validation để tránh injection/XSS.
+- **Least privilege**: chỉ cho admin quyền tạo/xoá/ cập nhật role.
 
 ---
 
 ## 10. Checklist thực hiện (chi tiết hành động)
 
-1. Tạo DTOs trong LmsMini.Api/Models.
-2. Tạo IEmailSender + ConsoleEmailSender trong LmsMini.Infrastructure/Services; đăng ký DI.
-3. Cập nhật Program.cs để AddIdentity + AddDefaultTokenProviders + AddAuthentication JwtBearer.
-4. Mở `LmsMini.Api/Controllers/AccountController.cs`, thêm các endpoint code theo mẫu.
-5. Đảm bảo `using Microsoft.AspNetCore.WebUtilities;` cho Base64Url.
-6. Chạy `dotnet build` và `dotnet run`; test bằng Postman/Swagger.
-7. Viết tests nếu có thời gian.
+1. Tạo DTOs [CREATE] trong `LmsMini.Api/Models` nếu chưa có.
+2. Tạo `IEmailSender` + `ConsoleEmailSender` trong `LmsMini.Infrastructure/Services`; đăng ký DI.
+3. Cập nhật `Program.cs`: AddIdentity, AddDefaultTokenProviders, AddAuthentication (JwtBearer), đăng ký IEmailSender.
+4. Thêm `RoleSeeder` (và tuỳ chọn `AdminSeeder`) và gọi sau `builder.Build()`.
+5. Mở `LmsMini.Api/Controllers/AccountController.cs`, inject thêm `RoleManager<IdentityRole<Guid>>` nếu cần và thêm endpoint code theo mẫu.
+6. Thêm `using Microsoft.AspNetCore.WebUtilities;` cho Base64Url encode/decode.
+7. Chạy `dotnet build` và `dotnet run`; kiểm tra bằng Postman/Swagger.
+8. Viết integration tests (mock hoặc test server) cho các flow quan trọng.
 
 ---
 
 Nếu bạn muốn, tôi có thể:
-- A: Tạo ngay các DTO files + IEmailSender stub + cập nhật Program.cs skeleton + thêm methods vào AccountController và chạy build.
-- B: Chỉ tạo tài liệu này (xong) — bạn làm tiếp.
+
+- **A**: Tạo các DTO [CREATE] + IEmailSender stub + cập nhật skeleton `Program.cs` + thêm methods vào `AccountController` và chạy build.
+- **B**: Chỉ giữ tài liệu (xong) — bạn thực hiện các bước tiếp theo.
 
 Chọn A hoặc B để tôi thực hiện tiếp.
