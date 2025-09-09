@@ -75,32 +75,32 @@ flowchart LR
   classDef admin fill:#fff0f0,stroke:#c62828,stroke-width:1px;
 
   subgraph PublicEndpoints["Public"]
-    FP["api_forgot_password_""/api/account/forgot-password"]:::public
-    RP["api_reset_password_""/api/account/reset-password"]:::public
-    CE["api_confirm_email_""/api/account/confirm-email"]:::public
-    RT["api_refresh_token_""/api/account/refresh-token"]:::public
-    SA["api_setup_admin_""/api/account/setup-admin"]:::public
+    fp["/api/account/forgot-password"]:::public
+    rp["/api/account/reset-password"]:::public
+    ce["/api/account/confirm-email"]:::public
+    rt["/api/account/refresh-token"]:::public
+    sa["/api/account/setup-admin"]:::public
   end
 
   subgraph AuthorizedEndpoints["Authorized"]
-    CP["api_change_password_""/api/account/change-password"]:::auth
-    ME_GET["api_me_get_""/api/account/me (GET)"]:::auth
-    ME_PUT["api_me_put_""/api/account/me (PUT)"]:::auth
-    DEL["api_account_delete_""/api/account (DELETE)"]:::auth
-    LO["api_logout_""/api/account/logout"]:::auth
+    cp["/api/account/change-password"]:::auth
+    me_get["/api/account/me (GET)"]:::auth
+    me_put["/api/account/me (PUT)"]:::auth
+    del["/api/account (DELETE)"]:::auth
+    lo["/api/account/logout"]:::auth
   end
 
   subgraph AdminEndpoints["Admin"]
-    GR["api_roles_get_""/api/account/roles (GET)"]:::admin
-    CR["api_roles_create_""/api/account/roles (POST)"]:::admin
-    UR["api_roles_update_""/api/account/roles/{id} (PUT)"]:::admin
-    DR["api_roles_delete_""/api/account/roles/{id} (DELETE)"]:::admin
+    gr["/api/account/roles (GET)"]:::admin
+    cr["/api/account/roles (POST)"]:::admin
+    ur["/api/account/roles/{id} (PUT)"]:::admin
+    dr["/api/account/roles/{id} (DELETE)"]:::admin
   end
 
-  FP --> RP
-  RP --> RT
-  RT --> LO
-  SA --> CR
+  fp --> rp
+  rp --> rt
+  rt --> lo
+  sa --> cr
   PublicEndpoints --> AuthorizedEndpoints
   AuthorizedEndpoints --> AdminEndpoints
 ```
