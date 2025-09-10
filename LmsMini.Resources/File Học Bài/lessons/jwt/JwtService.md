@@ -83,7 +83,7 @@ Ví dụ (tóm tắt):
   - `services.AddSingleton<IJwtService, JwtService>();`
 - Tạo token:
   - `var token = jwtService.CreateToken(user, roles);`
-- Xác thực token (server): `jwtService.ValidateToken(token)` trả về `ClaimsPrincipal` hoặc `null`.
+- Xác thực token (server): `jwtservice.ValidateToken(token)` trả về `ClaimsPrincipal` hoặc `null`.
 
 ---
 
@@ -127,6 +127,7 @@ Những điểm trên đủ để hiểu và tùy chỉnh `JwtService` trong h�
 Dưới đây là sơ đồ luồng cho hai thao tác chính: `CreateToken` và `ValidateToken` — giúp hình dung cách dữ liệu di chuyển và các bước chính.
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 60}, "themeVariables": {"fontSize": "16px"}}}%%
 flowchart LR
   subgraph CreateTokenFlow["CreateToken"]
     A1["Input: user, roles"]
@@ -159,4 +160,4 @@ flowchart LR
 
 ---
 
-Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.
+Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.
