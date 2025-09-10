@@ -128,25 +128,25 @@ Dưới đây là sơ đồ luồng cho hai thao tác chính: `CreateToken` và 
 
 ```mermaid
 flowchart LR
-  subgraph CreateTokenFlow [CreateToken]
-    A1[Input: user, roles]
-    A2[Build base claims: sub, email, name]
-    A3[Convert roles -> ClaimTypes.Role]
-    A4[Create SymmetricSecurityKey from _opts.Key]
-    A5[Create SigningCredentials (HmacSha256)]
-    A6[Create JwtSecurityToken (issuer, audience, claims, expires, signingCredentials)]
-    A7[WriteToken -> signed JWT string (output)]
+  subgraph CreateTokenFlow["CreateToken"]
+    A1["Input: user, roles"]
+    A2["Build base claims: sub, email, name"]
+    A3["Convert roles -> role claims"]
+    A4["Create symmetric key from _opts.Key"]
+    A5["Create signing creds HmacSha256"]
+    A6["Create JwtSecurityToken with issuer/audience/claims/expires"]
+    A7["WriteToken -> signed JWT string"]
 
     A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7
   end
 
-  subgraph ValidateTokenFlow [ValidateToken]
-    B1[Input: token string]
-    B2[JwtSecurityTokenHandler.ValidateToken(token, _validationParams, out validatedToken)]
-    B3[Check validatedToken is JwtSecurityToken]
-    B4[Check header alg == HmacSha256]
-    B5[If valid -> return ClaimsPrincipal]
-    B6[If invalid/exception -> return null]
+  subgraph ValidateTokenFlow["ValidateToken"]
+    B1["Input: token string"]
+    B2["ValidateToken(token, _validationParams)"]
+    B3["Check validatedToken is JwtSecurityToken"]
+    B4["Check header alg equals HmacSha256"]
+    B5["If valid -> return ClaimsPrincipal"]
+    B6["If invalid/exception -> return null"]
 
     B1 --> B2 --> B3 --> B4 -->|ok| B5
     B2 -->|error| B6
@@ -154,10 +154,9 @@ flowchart LR
     B4 -->|fail| B6
   end
 
-  %% Optional: relation between flows
   A7 -.-> B1
 ```
 
 ---
 
-Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.
+Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.
