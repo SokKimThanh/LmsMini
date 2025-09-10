@@ -286,7 +286,7 @@ dotenv user-secrets set "Jwt:Key" "your_secret_key_here"
   - Xem danh sách secrets:
 
 ```bash
-dotnet user-secrets list
+dotenv user-secrets list
 ```
 
   - Đọc trong ứng dụng (IConfiguration):
@@ -438,11 +438,13 @@ app.UseAuthorization();
 Tóm tắt: tách logic tạo/validate JWT ra thành một service tái sử dụng giúp giữ controller gọn, dễ unit-test và đảm bảo cấu hình khóa (signing key) được đọc an toàn từ `user-secrets` hoặc biến môi trường.
 
 - Mục đích: cung cấp API đơn giản để tạo access token và validate token từ một chỗ duy nhất.
+- Vị trí khuyến nghị:
+  - Contract / options: `LmsMini.Application` (ví dụ `LmsMini.Application/Interfaces/IJwtService.cs`, `LmsMini.Application/Auth/JwtOptions.cs`)
+  - Implementation: `LmsMini.Infrastructure/Services/JwtService.cs`
 
-Gợi ý triển khai (concise)
+JwtOptions (thực tế — file: `LmsMini.Application/Auth/JwtOptions.cs`)
 
 ```csharp
-// JwtOptions (LmsMini.Application/Auth/JwtOptions.cs)
 public class JwtOptions
 {
     public string Key { get; set; } = string.Empty;
@@ -450,15 +452,21 @@ public class JwtOptions
     public string Audience { get; set; } = "LmsMiniClient";
     public int ExpiresInMinutes { get; set; } = 60;
 }
+```
 
-// IJwtService (LmsMini.Application/Interfaces/IJwtService.cs)
+IJwtService (LmsMini.Application/Interfaces/IJwtService.cs)
+
+```csharp
 public interface IJwtService
 {
     string CreateToken(AspNetUser user, IEnumerable<string> roles);
     ClaimsPrincipal? ValidateToken(string token);
 }
+```
 
-// JwtService (LmsMini.Infrastructure/Services/JwtService.cs) - outline
+JwtService (LmsMini.Infrastructure/Services/JwtService.cs) - outline
+
+```csharp
 public class JwtService : IJwtService
 {
     private readonly JwtOptions _opts;
@@ -579,6 +587,34 @@ Tóm tắt: chứa các **code mẫu** cho từng endpoint; mỗi đoạn có m�
 > ⚠️ Code mẫu chỉ dùng cho mục đích học tập và tham khảo.  
 > Không triển khai trực tiếp vào môi trường production nếu chưa rà soát bảo mật.
 
+### Sử dụng `IJwtService` trong `AccountController`
+
+Ví dụ constructor (AccountController) — inject `IJwtService`:
+
+```csharp
+public class AccountController : ControllerBase
+{
+    private readonly UserManager<AspNetUser> _userManager;
+    private readonly LmsDbContext _dbContext;
+    private readonly IJwtService _jwtService;
+    private readonly IConfiguration _config;
+    private readonly IEmailSender _emailSender;
+
+    public AccountController(UserManager<AspNetUser> userManager,
+                             LmsDbContext dbContext,
+                             IJwtService jwtService,
+                             IConfiguration config,
+                             IEmailSender emailSender)
+    {
+        _userManager = userManager;
+        _dbContext = dbContext;
+        _jwtService = jwtService;
+        _config = config;
+        _emailSender = emailSender;
+    }
+}
+```
+
 ### 5.1 Change password
 
 **Code mẫu: Change Password**
@@ -646,8 +682,6 @@ sequenceDiagram
   API_Reset-->>API_Reset: Decode token, ResetPasswordAsync
   API_Reset-->>U: 200 OK or 400 Error
 ```
-
-(This is a large file; license will be appended at end.)
 
 ### 5.3 Reset password
 
@@ -882,7 +916,7 @@ public async Task<IActionResult> Register(RegisterRequest req)
 }
 ```
 
-**Code mẫu: Login (trả access token + refresh token)**
+**Code mẫu: Login (trả access token + refresh token) — sử dụng `IJwtService`**
 
 ```csharp
 // Purpose: Authenticate user, issue JWT access token and refresh token
@@ -896,34 +930,9 @@ public async Task<IActionResult> Login(LoginRequest req)
     if (!pwOk) return Unauthorized();
 
     var roles = await _userManager.GetRolesAsync(user);
-    var claims = new List<Claim>
-    {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty)
-    };
-    claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
-    var jwtKey = _config["Jwt:Key"];
-    if (string.IsNullOrWhiteSpace(jwtKey)) return StatusCode(500, "JWT key is not configured.");
-
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-    var issuer = _config["Jwt:Issuer"];
-    var audience = _config["Jwt:Audience"];
-    var expiresInMinutes = 60;
-    if (int.TryParse(_config["Jwt:ExpiresInMinutes"], out var minutes)) expiresInMinutes = minutes;
-
-    var tokenDescriptor = new JwtSecurityToken(
-        issuer: issuer,
-        audience: audience,
-        claims: claims,
-        expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
-        signingCredentials: creds
-    );
-
-    var accessToken = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+    // Create access token via IJwtService
+    var accessToken = _jwtService.CreateToken(user, roles);
 
     // tạo refresh token và lưu vào DB
     var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
@@ -935,10 +944,9 @@ public async Task<IActionResult> Login(LoginRequest req)
 }
 ```
 
-### 5.10 Refresh token & Logout (code mẫu hoàn chỉnh)
+### 5.10 Refresh token & Logout (code mẫu hoàn chỉnh) — cập nhật để dùng `IJwtService` khi tạo access token mới
 
 **Code mẫu: Refresh Token & Logout**
-
 
 ```csharp
 // Purpose: Exchange refresh token for new access token; revoke old token
@@ -952,25 +960,11 @@ public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
     if (user == null) return Unauthorized();
 
     var roles = await _userManager.GetRolesAsync(user);
-    var claims = new List<Claim>
-    {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty)
-    };
-    claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-    var token = new JwtSecurityToken(
-        issuer: _config["Jwt:Issuer"],
-        audience: _config["Jwt:Audience"],
-        claims: claims,
-        expires: DateTime.UtcNow.AddMinutes(int.Parse(_config["Jwt:ExpiresInMinutes"] ?? "60")),
-        signingCredentials: creds
-    );
-    var accessToken = new JwtSecurityTokenHandler().WriteToken(token);
+    // Create new access token via IJwtService
+    var accessToken = _jwtService.CreateToken(user, roles);
 
+    // Revoke old refresh token and issue new one
     stored.IsRevoked = true;
     var newRt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
     var rtEntity = new RefreshToken { Token = newRt, UserId = stored.UserId, Expires = DateTime.UtcNow.AddDays(7) };
