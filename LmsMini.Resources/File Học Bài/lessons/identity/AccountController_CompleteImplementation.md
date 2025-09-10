@@ -353,7 +353,6 @@ builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options =>
 ```
 
 ### 4.2 JWT configuration (AddAuthentication + AddJwtBearer)
-### 4.2 JWT configuration (AddAuthentication + AddJwtBearer)
 
 💡 Trước khi thực hiện bước này, hãy xem lại phần [Hướng dẫn lưu API keys và credentials an toàn](#hướng-dẫn-lưu-api-keys-và-credentials-an-toàn) để đảm bảo bạn đã thiết lập **Jwt:Key** đúng cách và an toàn.
 
