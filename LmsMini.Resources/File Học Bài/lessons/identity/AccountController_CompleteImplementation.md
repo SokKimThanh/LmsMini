@@ -479,7 +479,7 @@ public async Task<IActionResult> ChangePassword(ChangePasswordRequest req)
     var user = await _userManager.GetUserAsync(User);
     if (user == null) return Unauthorized();
 
-    var res = await _user_manager.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
+    var res = await _userManager.ChangePasswordAsync(user, req.CurrentPassword, req.NewPassword);
     if (!res.Succeeded)
     {
         return BadRequest(res.Errors);
@@ -498,10 +498,10 @@ public async Task<IActionResult> ChangePassword(ChangePasswordRequest req)
 [HttpPost("forgot-password")]
 public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
 {
-    var user = await _user_manager.FindByEmailAsync(req.Email);
+    var user = await _userManager.FindByEmailAsync(req.Email);
     if (user == null) return Ok(); // không tiết lộ user tồn tại
 
-    var token = await _user_manager.GeneratePasswordResetTokenAsync(user);
+    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
     var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
     var url = $"{_config["App:BaseUrl"]}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={encoded}";
 
@@ -547,11 +547,11 @@ Mẫu endpoint nhận token (Base64Url), decode và gọi **ResetPasswordAsync**
 [HttpPost("reset-password")]
 public async Task<IActionResult> ResetPassword(ResetPasswordRequest req)
 {
-    var user = await _user_manager.FindByEmailAsync(req.Email);
+    var user = await _userManager.FindByEmailAsync(req.Email);
     if (user == null) return BadRequest("Invalid request");
 
     var token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(req.Token));
-    var res = await _user_manager.ResetPasswordAsync(user, token, req.NewPassword);
+    var res = await _userManager.ResetPasswordAsync(user, token, req.NewPassword);
     if (!res.Succeeded)
     {
         return BadRequest(res.Errors);
@@ -574,10 +574,10 @@ Endpoint xác nhận email bằng token do Identity sinh ra.
 [HttpPost("confirm-email")]
 public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest req)
 {
-    var user = await _user_manager.FindByIdAsync(req.UserId.ToString());
+    var user = await _userManager.FindByIdAsync(req.UserId.ToString());
     if (user == null) return BadRequest();
 
-    var res = await _user_manager.ConfirmEmailAsync(user, req.Token);
+    var res = await _userManager.ConfirmEmailAsync(user, req.Token);
     if (!res.Succeeded)
     {
         return BadRequest(res.Errors);
@@ -601,16 +601,16 @@ Endpoint cho phép user tự xóa tài khoản; có thể yêu cầu nhập lạ
 [Authorize]
 public async Task<IActionResult> DeleteAccount(DeleteAccountRequest? req = null)
 {
-    var user = await _user_manager.GetUserAsync(User);
+    var user = await _userManager.GetUserAsync(User);
     if (user == null) return Unauthorized();
 
     if (req?.Password != null)
     {
-        var check = await _user_manager.CheckPasswordAsync(user, req.Password);
+        var check = await _userManager.CheckPasswordAsync(user, req.Password);
         if (!check) return BadRequest("Invalid password");
     }
 
-    var res = await _user_manager.DeleteAsync(user);
+    var res = await _userManager.DeleteAsync(user);
     if (!res.Succeeded)
     {
         return BadRequest(res.Errors);
@@ -634,9 +634,9 @@ Endpoints lấy và cập nhật thông tin profile của user hiện tại.
 [Authorize]
 public async Task<IActionResult> Me()
 {
-    var user = await _user_manager.GetUserAsync(User);
+    var user = await _userManager.GetUserAsync(User);
     if (user == null) return Unauthorized();
-    var roles = await _user_manager.GetRolesAsync(user);
+    var roles = await _userManager.GetRolesAsync(user);
     return Ok(new { user.Id, user.Email, user.UserName, Roles = roles });
 }
 
@@ -645,17 +645,14 @@ public async Task<IActionResult> Me()
 [Authorize]
 public async Task<IActionResult> UpdateProfile(UpdateProfileRequest req)
 {
-    var user = await _user_manager.GetUserAsync(User);
+    var user = await _userManager.GetUserAsync(User);
     if (user == null) return Unauthorized();
 
     if (!string.IsNullOrWhiteSpace(req.UserName)) user.UserName = req.UserName;
     // cập nhật các trường khác nếu có
 
-    var res = await _user_manager.UpdateAsync(user);
-    if (!res.Succeeded)
-    {
-        return BadRequest(res.Errors);
-    }
+    var res = await _userManager.UpdateAsync(user);
+    if (!res.Succeeded) return BadRequest(res.Errors);
 
     return Ok();
 }
@@ -675,7 +672,7 @@ Endpoints quản lý role, bảo vệ bằng role **Admin**.
 [Authorize(Roles = "Admin")]
 public async Task<IActionResult> GetRoles()
 {
-    var roles = await _role_manager.Roles.ToListAsync();
+    var roles = await _roleManager.Roles.ToListAsync();
     return Ok(roles);
 }
 
@@ -685,7 +682,7 @@ public async Task<IActionResult> GetRoles()
 public async Task<IActionResult> CreateRole(RoleRequest req)
 {
     var role = new IdentityRole<Guid> { Name = req.Name, NormalizedName = req.Name.ToUpper() };
-    var res = await _role_manager.CreateAsync(role);
+    var res = await _roleManager.CreateAsync(role);
     if (!res.Succeeded) return BadRequest(res.Errors);
     return Ok();
 }
@@ -695,12 +692,12 @@ public async Task<IActionResult> CreateRole(RoleRequest req)
 [Authorize(Roles = "Admin")]
 public async Task<IActionResult> UpdateRole(Guid id, RoleRequest req)
 {
-    var role = await _role_manager.FindByIdAsync(id.ToString());
+    var role = await _roleManager.FindByIdAsync(id.ToString());
     if (role == null) return NotFound();
 
     role.Name = req.Name;
     role.NormalizedName = req.Name.ToUpper();
-    var res = await _role_manager.UpdateAsync(role);
+    var res = await _roleManager.UpdateAsync(role);
     if (!res.Succeeded) return BadRequest(res.Errors);
     return Ok();
 }
@@ -710,10 +707,10 @@ public async Task<IActionResult> UpdateRole(Guid id, RoleRequest req)
 [Authorize(Roles = "Admin")]
 public async Task<IActionResult> DeleteRole(Guid id)
 {
-    var role = await _role_manager.FindByIdAsync(id.ToString());
+    var role = await _roleManager.FindByIdAsync(id.ToString());
     if (role == null) return NotFound();
 
-    var res = await _role_manager.DeleteAsync(role);
+    var res = await _roleManager.DeleteAsync(role);
     if (!res.Succeeded) return BadRequest(res.Errors);
     return Ok();
 }
@@ -730,13 +727,13 @@ public async Task<IActionResult> DeleteRole(Guid id)
 public async Task<IActionResult> SetupAdmin(SetupAdminRequest req)
 {
     var adminRole = new IdentityRole<Guid> { Name = "Admin", NormalizedName = "ADMIN" };
-    await _role_manager.CreateAsync(adminRole);
+    await _roleManager.CreateAsync(adminRole);
 
     var user = new AspNetUser { UserName = req.Email, Email = req.Email };
-    var res = await _user_manager.CreateAsync(user, req.Password);
+    var res = await _userManager.CreateAsync(user, req.Password);
     if (res.Succeeded)
     {
-        await _user_manager.AddToRoleAsync(user, adminRole.Name);
+        await _userManager.AddToRoleAsync(user, adminRole.Name);
         return Ok();
     }
     return BadRequest(res.Errors);
@@ -757,14 +754,14 @@ public async Task<IActionResult> Register(RegisterRequest req)
         UserName = req.Email,
         Email = req.Email
     };
-    var result = await _user_manager.CreateAsync(user, req.Password);
+    var result = await _userManager.CreateAsync(user, req.Password);
     if (!result.Succeeded)
     {
         return BadRequest(result.Errors);
     }
 
     // Gán role mặc định
-    await _user_manager.AddToRoleAsync(user, "Learner");
+    await _userManager.AddToRoleAsync(user, "Learner");
 
     return Ok();
 }
@@ -777,13 +774,13 @@ public async Task<IActionResult> Register(RegisterRequest req)
 [HttpPost("login")]
 public async Task<IActionResult> Login(LoginRequest req)
 {
-    var user = await _user_manager.FindByEmailAsync(req.Email);
+    var user = await _userManager.FindByEmailAsync(req.Email);
     if (user == null) return Unauthorized();
 
-    var pwOk = await _user_manager.CheckPasswordAsync(user, req.Password);
+    var pwOk = await _userManager.CheckPasswordAsync(user, req.Password);
     if (!pwOk) return Unauthorized();
 
-    var roles = await _user_manager.GetRolesAsync(user);
+    var roles = await _userManager.GetRolesAsync(user);
     var claims = new List<Claim>
     {
         new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -816,15 +813,12 @@ public async Task<IActionResult> Login(LoginRequest req)
     // tạo refresh token và lưu vào DB
     var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
     var rt = new RefreshToken { Token = refreshToken, UserId = user.Id, Expires = DateTime.UtcNow.AddDays(7) };
-    _db.RefreshTokens.Add(rt);
-    await _db.SaveChangesAsync();
+    _dbContext.RefreshTokens.Add(rt);
+    await _dbContext.SaveChangesAsync();
 
     return Ok(new { accessToken, refreshToken });
 }
 ```
-
-> 💡 Ghi chú: **_db_** là instance của **LmsDbContext** có `DbSet<RefreshToken> RefreshTokens`.
-
 
 ### 5.10 Refresh token & Logout (code mẫu hoàn chỉnh)
 
@@ -836,13 +830,13 @@ public async Task<IActionResult> Login(LoginRequest req)
 [HttpPost("refresh-token")]
 public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
 {
-    var stored = await _db.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
+    var stored = await _dbContext.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
     if (stored == null || stored.IsRevoked || stored.Expires < DateTime.UtcNow) return Unauthorized();
 
-    var user = await _user_manager.FindByIdAsync(stored.UserId.ToString());
+    var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
     if (user == null) return Unauthorized();
 
-    var roles = await _user_manager.GetRolesAsync(user);
+    var roles = await _userManager.GetRolesAsync(user);
     var claims = new List<Claim>
     {
         new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -865,8 +859,8 @@ public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
     stored.IsRevoked = true;
     var newRt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
     var rtEntity = new RefreshToken { Token = newRt, UserId = stored.UserId, Expires = DateTime.UtcNow.AddDays(7) };
-    _db.RefreshTokens.Add(rtEntity);
-    await _db.SaveChangesAsync();
+    _dbContext.RefreshTokens.Add(rtEntity);
+    await _dbContext.SaveChangesAsync();
 
     return Ok(new { accessToken, refreshToken = newRt });
 }
@@ -876,11 +870,11 @@ public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
 [Authorize]
 public async Task<IActionResult> Logout(LogoutRequest req)
 {
-    var stored = await _db.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
+    var stored = await _dbContext.RefreshTokens.SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
     if (stored != null)
     {
         stored.IsRevoked = true;
-        await _db.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync();
     }
     return Ok();
 }
@@ -894,7 +888,7 @@ Tóm tắt: token do Identity sinh có ký tự đặc biệt, **không** truy�
 
 ```csharp
 // Purpose: Encode Identity tokens to be URL-safe
-var token = await _user_manager.GeneratePasswordResetTokenAsync(user);
+var token = await _userManager.GeneratePasswordResetTokenAsync(user);
 var encoded = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
 // Khi nhận lại
