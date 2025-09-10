@@ -105,4 +105,22 @@ Ví dụ (tóm tắt):
 
 ---
 
+## Có cần học không? Những điểm chính cần nhớ
+Nên học. Đây là các điểm ngắn gọn, hữu dụng để nhớ khi làm việc với `JwtService`:
+
+- Mục đích chính: `JwtService` tạo token (`CreateToken`) và xác thực token (`ValidateToken`).
+- Claims cơ bản: `sub` (user id), `email`, `name` và các `ClaimTypes.Role` cho vai trò.
+- Cách ký token: dùng `SymmetricSecurityKey` từ `JwtOptions.Key` và `SigningCredentials` với `HmacSha256`.
+- Thời hạn token: `expires = DateTime.UtcNow.AddMinutes(_opts.ExpiresInMinutes)` — cấu hình qua `JwtOptions`.
+- Validate token: kiểm tra issuer, audience, lifetime và signature thông qua `TokenValidationParameters`.
+- Bảo mật khóa: lưu `JwtOptions.Key` an toàn (biến môi trường / Secret Manager) và đảm bảo đủ dài, ngẫu nhiên.
+- Kiểm tra thuật toán: `ValidateToken` kiểm tra header `alg` = `HmacSha256` để chống tấn công thay đổi thuật toán.
+- Clock skew: `ClockSkew = TimeSpan.Zero` loại bỏ dung sai mặc định; cần cân nhắc nếu hệ thống lệch giờ.
+- Mở rộng khi cần: thêm `jti` cho khả năng thu hồi token hoặc triển khai refresh token khi cần.
+- Tích hợp: đăng ký `JwtOptions` và `JwtService` trong DI để sử dụng trong controller/middleware.
+
+Những điểm trên đủ để hiểu và tùy chỉnh `JwtService` trong hầu hết các trường hợp. Nếu cần checklist kiểm tra cấu hình hoặc ví dụ test unit, có thể thêm vào tài liệu.
+
+---
+
 Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.
