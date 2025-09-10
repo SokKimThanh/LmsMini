@@ -374,6 +374,20 @@ Bạn đã làm được gì: ✅ hiểu Admin là ai.
 
 ---
 
+## Bài học hôm nay
+
+Hôm nay mình rút ra vài bài học ngắn gọn các em và thầy cô có thể mang theo:
+
+- Tài liệu kỹ thuật cần rõ ràng và dễ đọc: viết ví dụ ngắn, đồng bộ tên biến và mô tả từng bước giúp người mới hiểu nhanh.
+- Bảo mật là ưu tiên: không lưu khóa bí mật trong mã nguồn; dùng user-secrets hoặc biến môi trường để giữ an toàn.
+- Tách trách nhiệm tốt: việc tạo/kiểm tra token (JWT) nên đặt vào một service (`IJwtService`/`JwtService`) để controller gọn và dễ test.
+- Luồng refresh/logout cần quản lý refresh token (lưu, thu hồi, rotate) để an toàn khi cấp lại access token.
+- Viết tài liệu "dễ hiểu" cho người mới (học sinh) giúp truyền đạt khái niệm trước khi vào chi tiết kỹ thuật.
+
+Các em có thể thử áp dụng: đọc phần "Hướng dẫn lưu API keys" trong tài liệu chính và thử tạo một `JwtService` đơn giản theo ví dụ.
+
+Chúc các em học tốt! 🎓
+
 > 📜 Bản quyền © [2025] [Sok Kim Thanh] – Tài liệu do [Sok Kim Thanh] soạn. Không dùng cho mục đích thương mại.
 
 Chúc các em học vui, cô yêu các em nhiều lắm! ❤️✨
