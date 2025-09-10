@@ -76,6 +76,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // 3.7 Đăng ký Identity
+// Note: AspNetUser and LmsDbContext are already configured to work with Identity.
+// To add EF Core Identity migrations, see the migrations README in the infrastructure project.
 builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options =>
 {
     // Password settings (tweak as needed)

@@ -1,5 +1,8 @@
 ﻿# 📦 Scaffold Entity từ Database cho LMS Mini (.NET 9)
 
+> Status: ✅ Completed
+> Last updated: 2025-09-15
+
 ## 🎯 Mục tiêu
 Hướng dẫn sinh mã C# (Entity + DbContext) từ cơ sở dữ liệu LMSMini bằng Entity Framework Core 9, theo hướng **Database-first**, và tổ chức vào cấu trúc thư mục Clean Architecture của dự án LmsMini.
 
