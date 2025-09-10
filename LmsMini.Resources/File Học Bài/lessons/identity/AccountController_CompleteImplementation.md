@@ -242,6 +242,92 @@ public class SendGridEmailSender : IEmailSender
 
 > ⚠️ Bảo mật: lưu **API keys** và credentials trong **user-secrets** hoặc biến môi trường; không commit vào repo.
 
+### Hướng dẫn lưu API keys và credentials an toàn
+
+Ngay sau đây là các cách phổ biến và an toàn để lưu **API keys** và **credentials**, kèm lệnh và ví dụ đọc cấu hình.
+
+- Tại sao không nên commit keys/credentials vào repo?
+  - Nếu commit, bất kỳ ai có quyền đọc repo (hoặc nếu repo public) đều có thể thấy keys — dẫn tới bị **khai thác**, mất dữ liệu, hoặc chi phí do sử dụng tài nguyên.
+  - Keys lộ có thể khiến tài khoản service bị tấn công hoặc bị sử dụng trái phép.
+
+- Cách 1 — Sử dụng **.NET user-secrets** (phù hợp cho môi trường phát triển):
+  - Khởi tạo user-secrets cho project (chạy trong thư mục chứa .csproj):
+
+```bash
+dotnet user-secrets init
+```
+
+  - Ghi một secret (ví dụ Jwt:Key):
+
+```bash
+dotnet user-secrets set "Jwt:Key" "your_secret_key_here"
+```
+
+  - Xem danh sách secrets:
+
+```bash
+dotnet user-secrets list
+```
+
+  - Đọc trong ứng dụng (IConfiguration):
+
+```csharp
+// Ví dụ đọc trong Program.cs hoặc nơi có IConfiguration
+var jwtKey = configuration["Jwt:Key"];
+```
+
+  - Lưu ý: user-secrets lưu trong file trên máy của bạn (secrets.json trong profile của user), **không** nằm trong repo. Tuy nhiên vẫn không nên dùng cho production.
+
+- Cách 2 — Sử dụng **biến môi trường** (thích hợp cho production và container):
+  - Lưu ý mapping: dấu `:` trong khóa cấu hình tương ứng với hai dấu gạch dưới `__` trong tên biến môi trường. Ví dụ `Jwt:Key` => `JWT__Key`.
+
+  - Windows (Command Prompt):
+
+```bat
+setx JWT__Key "your_secret_key_here"
+```
+
+  - Windows (PowerShell):
+
+```powershell
+[Environment]::SetEnvironmentVariable("JWT__Key", "your_secret_key_here", "User")
+```
+
+  - macOS / Linux (bash/zsh):
+
+```bash
+export JWT__Key="your_secret_key_here"
+```
+
+  - Trong Dockerfile hoặc container orchestration (ví dụ Kubernetes) cũng có cách đặt biến môi trường tương tự.
+
+  - Đọc trong ứng dụng (IConfiguration):
+
+```csharp
+var jwtKey = configuration["Jwt:Key"];
+```
+
+  - Sau khi đặt biến môi trường, khởi động lại ứng dụng để nhận giá trị mới.
+
+- Một số lưu ý quan trọng:
+  - ✅ **User-secrets**: chỉ dùng cho phát triển trên máy lập trình viên. Không dùng cho production.
+  - ✅ **Biến môi trường**: phù hợp cho production, CI/CD và container.
+  - ❌ **Không** commit bất kỳ file nào chứa secrets (ví dụ secrets.json hoặc file cấu hình có keys) vào hệ thống quản lý mã nguồn.
+  - 🔒 Hạn chế quyền truy cập tới nơi lưu secrets (chỉ admins hoặc CI chạy mới có quyền đọc).
+
+- Ví dụ ngắn trong code (Program.cs / Controller):
+
+```csharp
+// Lấy secret từ IConfiguration (đã được cấu hình để đọc user-secrets và env vars)
+var jwtKey = configuration["Jwt:Key"]; // có thể là null nếu chưa thiết lập
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("Jwt:Key is not configured. Use user-secrets or environment variables to set it.");
+}
+```
+
+> ⚠️ Một lần nữa: KHÔNG commit file chứa credentials hoặc secrets vào repo. Sử dụng user-secrets cho dev và biến môi trường cho production.
+
 ---
 
 ## 4. Program.cs — đăng ký Identity, JWT và DI
@@ -991,5 +1077,4 @@ Nguyên văn tóm tắt điều khoản chính (khuyến nghị đọc nguyên v
 - Bạn không được: sử dụng nội dung cho mục đích thương mại trừ khi được phép bằng văn bản.
 - Nếu sửa đổi, bạn phải phát hành tác phẩm phái sinh theo cùng giấy phép (ShareAlike).
 
-Đọc nguyên văn và điều khoản đầy đủ tại: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
- 
+Đọc nguyên văn và điều khoản đầy đủ tại: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode 
