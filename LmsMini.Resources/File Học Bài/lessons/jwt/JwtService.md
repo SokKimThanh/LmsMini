@@ -123,39 +123,46 @@ Những điểm trên đủ để hiểu và tùy chỉnh `JwtService` trong h�
 
 ---
 
-## Sơ đồ minh họa (Mermaid)
-Dưới đây là sơ đồ luồng cho hai thao tác chính: `CreateToken` và `ValidateToken` — giúp hình dung cách dữ liệu di chuyển và các bước chính.
+## Sơ đồ minh họa (Mermaid sequence)
+Dưới đây là hai sơ đồ sequence Mermaid, mỗi sơ đồ mô tả chi tiết luồng tương tác cho một thao tác chính.
 
+### CreateToken (sequence)
 ```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 60}, "themeVariables": {"fontSize": "16px"}}}%%
-flowchart LR
-  subgraph CreateTokenFlow["CreateToken"]
-    A1["Input: user, roles"]
-    A2["Build base claims: sub, email, name"]
-    A3["Convert roles -> role claims"]
-    A4["Create symmetric key from _opts.Key"]
-    A5["Create signing creds HmacSha256"]
-    A6["Create JwtSecurityToken with issuer/audience/claims/expires"]
-    A7["WriteToken -> signed JWT string"]
+sequenceDiagram
+    participant Client
+    participant AuthController
+    participant JwtService
+    participant JwtOptions
 
-    A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7
-  end
+    Client->>AuthController: POST /login (credentials)
+    AuthController->>AuthController: Validate credentials
+    AuthController->>JwtService: CreateToken(user, roles)
+    JwtService->>JwtOptions: Read Issuer/Audience/Key/Expires
+    JwtService->>JwtService: Build claims (sub, email, name) and role claims
+    JwtService->>JwtService: Create symmetric key and signing credentials
+    JwtService->>JwtService: Create JwtSecurityToken and WriteToken
+    JwtService-->>AuthController: return signed token
+    AuthController-->>Client: 200 OK { token }
+```
 
-  subgraph ValidateTokenFlow["ValidateToken"]
-    B1["Input: token string"]
-    B2["ValidateToken(token, _validationParams)"]
-    B3["Check validatedToken is JwtSecurityToken"]
-    B4["Check header alg equals HmacSha256"]
-    B5["If valid -> return ClaimsPrincipal"]
-    B6["If invalid/exception -> return null"]
+### ValidateToken (sequence)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Api
+    participant JwtService
 
-    B1 --> B2 --> B3 --> B4 -->|ok| B5
-    B2 -->|error| B6
-    B3 -->|fail| B6
-    B4 -->|fail| B6
-  end
-
-  A7 -.-> B1
+    Client->>Api: Request with Authorization: Bearer <token>
+    Api->>JwtService: ValidateToken(token)
+    JwtService->>JwtService: Validate signature, issuer, audience, lifetime
+    JwtService->>JwtService: Check header alg == HmacSha256
+    alt token valid
+        JwtService-->>Api: ClaimsPrincipal
+        Api-->>Client: 200 OK (resource)
+    else token invalid
+        JwtService-->>Api: null
+        Api-->>Client: 401 Unauthorized
+    end
 ```
 
 ---
