@@ -102,36 +102,38 @@ flowchart LR
   classDef admin fill:#fff0f0,stroke:#c62828,stroke-width:1px;
 
   subgraph PublicEndpoints["Public"]
-    fp["/api/account/forgot-password"]:::public
-    rp["/api/account/reset-password"]:::public
-    ce["/api/account/confirm-email"]:::public
-    rt["/api/account/refresh-token"]:::public
-    sa["/api/account/setup-admin"]:::public
+    pub_fp["/api/account/forgot-password"]:::public
+    pub_rp["/api/account/reset-password"]:::public
+    pub_ce["/api/account/confirm-email"]:::public
+    pub_rt["/api/account/refresh-token"]:::public
+    pub_sa["/api/account/setup-admin"]:::public
   end
 
   subgraph AuthorizedEndpoints["Authorized"]
-    cp["/api/account/change-password"]:::auth
-    me_get["/api/account/me (GET)"]:::auth
-    me_put["/api/account/me (PUT)"]:::auth
-    del["/api/account (DELETE)"]:::auth
-    lo["/api/account/logout"]:::auth
+    auth_cp["/api/account/change-password"]:::auth
+    auth_me_get["/api/account/me (GET)"]:::auth
+    auth_me_put["/api/account/me (PUT)"]:::auth
+    auth_del["/api/account (DELETE)"]:::auth
+    auth_lo["/api/account/logout"]:::auth
   end
 
   subgraph AdminEndpoints["Admin"]
-    gr["/api/account/roles (GET)"]:::admin
-    cr["/api/account/roles (POST)"]:::admin
-    ur["/api/account/roles/{id} (PUT)"]:::admin
-    dr["/api/account/roles/{id} (DELETE)"]:::admin
+    adm_gr["/api/account/roles (GET)"]:::admin
+    adm_cr["/api/account/roles (POST)"]:::admin
+    adm_ur["/api/account/roles/{id} (PUT)"]:::admin
+    adm_dr["/api/account/roles/{id} (DELETE)"]:::admin
   end
 
-  fp --> rp
-  rp --> rt
-  rt --> lo
-  sa --> cr
+  pub_fp --> pub_rp
+  pub_rp --> pub_rt
+  pub_rt --> auth_lo
+  pub_sa --> adm_cr
   PublicEndpoints --> AuthorizedEndpoints
   AuthorizedEndpoints --> AdminEndpoints
----
+```
 
+\
+\
 ## 2. DTOs mẫu
 
 Tóm tắt: liệt kê **DTO** cần dùng; phân nhóm **[EXISTING]** (kiểm tra, không tạo) và **[CREATE]** (tạo mới nếu chưa có).
@@ -277,7 +279,7 @@ dotnet user-secrets init
   - Ghi một secret (ví dụ Jwt:Key):
 
 ```bash
-dotnet user-secrets set "Jwt:Key" "your_secret_key_here"
+dotenv user-secrets set "Jwt:Key" "your_secret_key_here"
 ```
 
   - Xem danh sách secrets:
