@@ -353,9 +353,17 @@ builder.Services.AddIdentity<AspNetUser, IdentityRole<Guid>>(options =>
 ```
 
 ### 4.2 JWT configuration (AddAuthentication + AddJwtBearer)
+### 4.2 JWT configuration (AddAuthentication + AddJwtBearer)
+
+💡 Trước khi thực hiện bước này, hãy xem lại phần [Hướng dẫn lưu API keys và credentials an toàn](#hướng-dẫn-lưu-api-keys-và-credentials-an-toàn) để đảm bảo bạn đã thiết lập **Jwt:Key** đúng cách và an toàn.
+
+> ⚠️ Lưu ý: giá trị `Jwt:Key` trong `appsettings.json` dưới đây chỉ là **placeholder** để minh họa. Tuyệt đối không commit khóa thật vào mã nguồn — hãy lấy giá trị thực từ **user-secrets** hoặc **biến môi trường** theo hướng dẫn ở trên.
+
+Mô tả: cấu hình JWT để validate token trên request.
+
+**appsettings.json** (mẫu):
 
 ```json
-// Purpose: cấu hình JWT trong appsettings.json
 "Jwt": {
   "Key": "<YOUR_SECRET_KEY_>_use_user_secrets_or_env",
   "Issuer": "LmsMini",
