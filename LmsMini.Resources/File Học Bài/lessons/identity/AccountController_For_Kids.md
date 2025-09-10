@@ -2,29 +2,31 @@
 
 > 📜 Bản quyền © [2025] [Sok Kim Thanh] – Tài liệu này do [Sok Kim Thanh] biên soạn. Mọi quyền được bảo lưu. Không được sao chép hoặc sử dụng cho mục đích thương mại nếu không được phép.
 
-🎯 Mục tiêu: Giúp bạn hiểu cách một ứng dụng web quản lý tài khoản. Chúng ta biến mọi thứ phức tạp thành những "nhiệm vụ" vui như trò chơi.
+Xin chào các bạn nhỏ! 👋
+
+Mình là cô giáo trẻ, xinh đẹp và rất dễ thương, hôm nay sẽ cùng các em khám phá cách "quản lý tài khoản" trong một trang web. Mình nói thật nhẹ nhàng, dễ hiểu, như kể chuyện nhé. 🎒🌟
 
 ---
 
-## Giới thiệu ngắn (dành cho bạn)
+## Mục tiêu nhỏ
 
-- Bạn sẽ học cách: đăng ký, đăng nhập, đổi mật khẩu, quên mật khẩu, xác nhận email, quản lý hồ sơ, vai trò (role), dùng vé (token) để vào phòng, và đăng xuất.
-- Mỗi phần là một "nhiệm vụ" (task). Bạn làm xong sẽ thấy "Bạn đã làm được gì".
+- Hiểu nhanh: đăng ký, đăng nhập, đổi mật khẩu, quên mật khẩu, xác nhận email, xem hồ sơ, vai trò, vé (token) và đăng xuất.
+- Mỗi phần là một "nhiệm vụ" dễ làm theo, như trò chơi.
 
-📚 Gợi ý: đọc từng phần, xem sơ đồ, làm theo các bước. Nếu bạn không hiểu từ nào, xem phần "Từ mới".
-
----
-
-## Từ mới (giải thích dễ hiểu)
-
-- **Identity**: giống như sổ danh sách tên và mật khẩu của mọi người. (Ai là ai?)
-- **Endpoint**: là địa chỉ trên internet mà bạn gửi yêu cầu (ví dụ: /login). Giống như cửa vào nhà.
-- **Token (🎟️)**: tấm vé để vào phòng. Nếu bạn có vé, bạn được phép làm một số việc.
-- **JWT**: là một loại vé (token) thông minh, có chữ ký để không bị giả.
+📚 Gợi ý: các em hãy đọc thật kỹ từng phần, xem sơ đồ, làm theo từng bước. Nếu có từ nào không hiểu, hãy xem phần "Từ mới" nhé.
 
 ---
 
-## Sơ đồ minh họa (dễ hiểu)
+## Một vài từ ngắn dễ hiểu
+
+- **Identity**: giống như sổ ghi tên và mật khẩu của mọi người. 📒 (Ai là ai?)
+- **Endpoint**: là địa chỉ để máy tính gửi yêu cầu, giống như cửa phòng. 🚪 (Ví dụ: /login)
+- **Token (vé 🎟️)**: tấm vé nhỏ để vào phòng. Có vé thì được vào, không có vé sẽ không vào được đâu!
+- **JWT**: một loại vé (token) thông minh, có in dấu đặc biệt để mọi người không làm giả.
+
+---
+
+## Sơ đồ nhanh (nhìn 1 phút hiểu luôn)
 
 Sơ đồ này cho thấy các chức năng và ai có thể dùng chúng.
 
@@ -35,49 +37,51 @@ flowchart LR
   classDef admin fill:#ffe6e6,stroke:#e03b3b,stroke-width:1px;
 
   subgraph Public["Ai cũng dùng (Xanh dương)"]
-    pub_register["👤 Đăng ký\n/register"]:::public
-    pub_login["🔐 Đăng nhập\n/login"]:::public
-    pub_forgot["📧 Quên mật khẩu\n/forgot"]:::public
-    pub_reset["🔑 Đặt lại mật khẩu\n/reset"]:::public
-    pub_confirm["📩 Xác nhận email\n/confirm-email"]:::public
+    reg["👤 Đăng ký\n/register"]:::public
+    log["🔐 Đăng nhập\n/login"]:::public
+    forg["📧 Quên mật khẩu\n/forgot"]:::public
+    res["🔑 Đặt lại mật khẩu\n/reset"]:::public
+    conf["📩 Xác nhận email\n/confirm-email"]:::public
   end
 
-  subgraph Authorized["Cần đăng nhập (Vàng)"]
-    auth_change["🔒 Đổi mật khẩu\n/change-password"]:::auth
-    auth_profile["👤 Hồ sơ của bạn\n/me"]:::auth
-    auth_logout["🚪 Đăng xuất\n/logout"]:::auth
-    auth_refresh["🎟️ Refresh token\n/refresh-token"]:::auth
+  subgraph Authed["Cần đăng nhập (Vàng)"]
+    chg["🔒 Đổi mật khẩu\n/change-password"]:::auth
+    prof["👤 Hồ sơ của bạn\n/me"]:::auth
+    out["🚪 Đăng xuất\n/logout"]:::auth
+    ref["🎟️ Refresh token\n/refresh-token"]:::auth
   end
 
-  subgraph AdminOnly["Chỉ Admin (Đỏ)"]
-    admin_roles["🛡️ Quản lý vai trò\n/roles"]:::admin
-    admin_setup["⚙️ Tạo Admin ban đầu\n/setup-admin"]:::admin
+  subgraph Admin["Chỉ Admin (Đỏ)"]
+    roles["🛡️ Quản lý vai trò\n/roles"]:::admin
+    setup["⚙️ Tạo Admin\n/setup-admin"]:::admin
   end
 
-  pub_register --> pub_login
-  pub_forgot --> pub_reset
-  pub_login --> auth_profile
-  auth_profile --> auth_change
-  auth_profile --> auth_logout
-  auth_refresh --> auth_profile
-  admin_setup --> admin_roles
+  reg --> log
+  forg --> res
+  log --> prof
+  prof --> chg
+  prof --> out
+  ref --> prof
+  setup --> roles
 
-  class pub_register,pub_login,pub_forgot,pub_reset,pub_confirm public;
-  class auth_change,auth_profile,auth_logout,auth_refresh auth;
-  class admin_roles,admin_setup admin;
+  class reg,log,forg,res,conf public;
+  class chg,prof,out,ref auth;
+  class roles,setup admin;
 ```
 
-> 📜 Bản quyền © [2025] [Sok Kim Thanh] – Sơ đồ này do [Sok Kim Thanh] biên soạn. Không sao chép hoặc sử dụng cho mục đích thương mại nếu không được phép.
+---
+
+Bây giờ mình sẽ chia từng nhiệm vụ. Mỗi nhiệm vụ có các bước rất ngắn để các em làm theo.
 
 ---
 
 ## Nhiệm vụ 1: Đăng ký (Create Account) 👤
 
-Mục tiêu: tạo một tài khoản mới, giống như làm thẻ thành viên câu lạc bộ.
+Câu chuyện: bạn muốn vào câu lạc bộ, phải đăng ký thẻ thành viên.
 
 Bước 1: Nhập email và mật khẩu.  
-Bước 2: Ứng dụng lưu tên và mật khẩu.  
-Bước 3: Bạn đã có tài khoản, có thể đăng nhập.
+Bước 2: Máy chủ lưu lại tên và mật khẩu.  
+Bước 3: Bạn có tài khoản, có thể đăng nhập.
 
 > 🔎 Giải thích đơn giản: Đăng ký giống như viết tên vào sổ. Khi cần, sổ sẽ kiểm tra tên và mật khẩu.
 
@@ -86,7 +90,7 @@ Bước 3: Bạn đã có tài khoản, có thể đăng nhập.
 Code mẫu (chỉ để tham khảo):
 
 ```csharp
-// Code này tạo một tài khoản mới trong máy chủ
+// Tạo tài khoản mới
 [HttpPost("register")]
 public async Task<IActionResult> Register(RegisterRequest req)
 {
@@ -102,20 +106,17 @@ public async Task<IActionResult> Register(RegisterRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Biết đăng ký giống như ghi tên vào sổ.
-- ✅ Hiểu rằng mật khẩu là chìa khóa riêng.
+Bạn đã làm được gì: ✅ biết đăng ký giống như làm thẻ thành viên.
 
 ---
 
 ## Nhiệm vụ 2: Đăng nhập (Log in) 🔐
 
-Mục tiêu: vào được bên trong ứng dụng giống như mở cửa bằng chìa khóa.
+Câu chuyện: bạn đến cổng câu lạc bộ, đưa email + mật khẩu, nếu đúng bạn được vé để vào.
 
 Bước 1: Nhập email và mật khẩu.  
-Bước 2: Ứng dụng kiểm tra sổ xem có tên đó và mật khẩu đúng không.  
-Bước 3: Nếu đúng, ứng dụng cho bạn một "vé" (token) để đi tiếp.
+Bước 2: Máy chủ kiểm tra.  
+Bước 3: Nếu đúng, máy chủ trả về vé (token).
 
 Ví dụ: token giống như vé vào rạp. Có vé mới được vào.
 
@@ -138,20 +139,17 @@ public async Task<IActionResult> Login(LoginRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Biết đăng nhập giống như dùng chìa khóa.
-- ✅ Hiểu token là vé vào cửa.
+Bạn đã làm được gì: ✅ biết đăng nhập giống như dùng chìa khóa.
 
 ---
 
 ## Nhiệm vụ 3: Đổi mật khẩu 🔑
 
-Mục tiêu: thay chìa khóa cũ bằng chìa khóa mới.
+Khi muốn thay chìa khóa cũ bằng chìa khóa mới.
 
-Bước 1: Bạn cần đăng nhập.  
-Bước 2: Nhập mật khẩu cũ và mật khẩu mới.  
-Bước 3: Ứng dụng kiểm tra mật khẩu cũ, nếu đúng, thay mật khẩu.
+Bước 1: Đăng nhập.  
+Bước 2: Nhập mật khẩu cũ + mật khẩu mới.  
+Bước 3: Máy chủ thay mật khẩu nếu mật khẩu cũ đúng.
 
 Code mẫu (mục đích):
 
@@ -170,21 +168,17 @@ public async Task<IActionResult> ChangePassword(ChangePasswordRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Biết cách đổi mật khẩu an toàn.
+Bạn đã làm được gì: ✅ biết cách đổi mật khẩu an toàn.
 
 ---
 
 ## Nhiệm vụ 4: Quên mật khẩu & Đặt lại 📧🔑
 
-Mục tiêu: nếu bạn quên chìa khóa, bạn có thể xin vé mới qua email.
+Câu chuyện: mất chìa khóa thì xin chìa khóa tạm qua email.
 
-Bước 1: Nhấn "Quên mật khẩu" và nhập email.  
-Bước 2: Máy chủ gửi email có liên kết chứa token (tấm vé tạm).  
-Bước 3: Bạn nhấn link, nhập mật khẩu mới.
-
-So sánh vui: nếu mất vé, bạn xin vé tạm qua email rồi đổi vé mới.
+Bước 1: Nhập email vào form "Quên mật khẩu".  
+Bước 2: Máy chủ gửi email có link (tấm vé tạm).  
+Bước 3: Nhấn link, đặt mật khẩu mới.
 
 Code mẫu (làm gì):
 
@@ -194,7 +188,7 @@ Code mẫu (làm gì):
 public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
 {
     var user = await _userManager.FindByEmailAsync(req.Email);
-    if (user == null) return Ok(); // Không nói là email có hay không
+    if (user == null) return Ok(); // không cho biết có hay không
 
     var token = await _userManager.GeneratePasswordResetTokenAsync(user);
     // Gửi token qua email (ví dụ: https://site/reset?token=...)
@@ -203,15 +197,13 @@ public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Hiểu cách xin và dùng liên kết để đặt lại mật khẩu.
+Bạn đã làm được gì: ✅ hiểu cách xin link đặt lại mật khẩu.
 
 ---
 
 ## Nhiệm vụ 5: Xác nhận email 📩
 
-Mục tiêu: chứng minh email là của bạn (giống như đóng dấu xác nhận).
+Sau đăng ký, bạn nhấn link trong email để chứng minh email là của bạn.
 
 Bước 1: Sau khi đăng ký, bạn nhận email chứa link xác nhận.  
 Bước 2: Nhấn link để xác nhận.  
@@ -233,9 +225,7 @@ public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Hiểu vì sao phải xác nhận email.
+Bạn đã làm được gì: ✅ hiểu vì sao phải xác nhận email.
 
 ---
 
@@ -273,13 +263,11 @@ public async Task<IActionResult> UpdateProfile(UpdateProfileRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Biết cách xem và cập nhật hồ sơ cá nhân.
+Bạn đã làm được gì: ✅ biết cách xem và cập nhật hồ sơ cá nhân.
 
 ---
 
-## Nhiệm vụ 7: Quản lý vai trò (Role) 🛡️
+## Nhiệm vụ 7: Vai trò (Role) 🛡️
 
 Mục tiêu: hiểu có người bình thường và người quản trị (Admin).
 
@@ -292,21 +280,19 @@ Code mẫu (làm gì):
 // Lấy danh sách vai trò (Admin only)
 [HttpGet("roles")]
 [Authorize(Roles = "Admin")]
-public async Task<IActionResult> GetRoles() { ... }
+public async Task<IActionResult> GetRoles() { /* chỉ Admin */ }
 
 // Tạo vai trò mới (Admin only)
 [HttpPost("roles")]
 [Authorize(Roles = "Admin")]
-public async Task<IActionResult> CreateRole(RoleRequest req) { ... }
+public async Task<IActionResult> CreateRole(RoleRequest req) { /* chỉ Admin */ }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Hiểu vai trò là gì và ai có quyền làm gì.
+Bạn đã làm được gì: ✅ hiểu vai trò là gì và ai có quyền làm gì.
 
 ---
 
-## Nhiệm vụ 8: Refresh token (Gia hạn vé) 🎟️
+## Nhiệm vụ 8: Refresh token 🎟️
 
 Mục tiêu: khi vé (token) hết hạn, bạn dùng "refresh token" để xin vé mới mà không cần đăng nhập lại.
 
@@ -325,9 +311,7 @@ public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Biết refresh token giúp không phải đăng nhập lại nhiều lần.
+Bạn đã làm được gì: ✅ biết refresh token giúp không phải đăng nhập lại nhiều lần.
 
 ---
 
@@ -352,13 +336,11 @@ public async Task<IActionResult> Logout(LogoutRequest req)
 }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Hiểu vì sao cần logout.
+Bạn đã làm được gì: ✅ hiểu vì sao cần logout.
 
 ---
 
-## Nhiệm vụ 10: Thiết lập Admin ban đầu (Setup Admin) ⚙️
+## Nhiệm vụ 10: Thiết lập Admin (1 lần) ⚙️
 
 Mục tiêu: tạo người quản trị đầu tiên cho hệ thống.
 
@@ -371,35 +353,27 @@ Code mẫu (làm gì):
 ```csharp
 // Tạo tài khoản admin khi mới cài đặt (dùng 1 lần)
 [HttpPost("setup-admin")]
-public async Task<IActionResult> SetupAdmin(SetupAdminRequest req) { ... }
+public async Task<IActionResult> SetupAdmin(SetupAdminRequest req) { /* tạo admin */ }
 ```
 
-Bạn đã làm được gì
-
-- ✅ Hiểu vai trò của admin và cách thiết lập ban đầu.
+Bạn đã làm được gì: ✅ hiểu Admin là ai.
 
 ---
 
 ## Muốn làm tiếp? 🛠️
 
-- Bạn có thể thử: tạo một trang HTML đơn giản với form đăng ký và đăng nhập.  
+- Các em có thể thử: tạo một trang HTML đơn giản với form đăng ký và đăng nhập.  
 - Dùng Postman (hoặc trang web) gửi yêu cầu đến các địa chỉ /register, /login để thử.
 
 ---
 
-## Ghi chú an toàn cho phụ huynh/giáo viên
+## Ghi chú an toàn cho cha mẹ/gv
 
-- Tài liệu này là để học và thử nghiệm. Không dùng các mật khẩu thật khi thử.  
-- Luôn bảo vệ thông tin cá nhân của học sinh.
-
----
-
-## Giấy phép & Bản quyền
-
-> 📜 Bản quyền © [2025] [Sok Kim Thanh] – Tài liệu này do [Sok Kim Thanh] biên soạn. Mọi quyền được bảo lưu. Không được sao chép hoặc sử dụng cho mục đích thương mại nếu không được phép.
-
-Giấy phép: CC BY-NC-SA 4.0 (Chi tiết: https://creativecommons.org/licenses/by-nc-sa/4.0/)
+- Dặn trẻ không dùng mật khẩu thật khi thử.  
+- Không chia sẻ email/mật khẩu công khai.
 
 ---
 
-Chúc bạn học vui! 🎉
+> 📜 Bản quyền © [2025] [Sok Kim Thanh] – Tài liệu do [Sok Kim Thanh] soạn. Không dùng cho mục đích thương mại.
+
+Chúc các em học vui, cô yêu các em nhiều lắm! ❤️✨
