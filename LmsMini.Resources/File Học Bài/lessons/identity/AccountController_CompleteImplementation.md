@@ -72,6 +72,25 @@ Tóm tắt: phần này liệt kê tất cả **endpoint** liên quan tới qu�
 
 > 💡 Tip: tìm nhanh theo **URL** hoặc **DTO** khi cần kiểm tra input/output.
 
+### 💡 Ghi chú: NavigationManager và API endpoint
+
+- **NavigationManager** là API của **Blazor (client-side)** dùng để điều hướng giao diện (ví dụ chuyển trang trong trình duyệt). Nó **không** áp dụng cho mã backend (ASP.NET Core Web API) mà tài liệu này mô tả.
+- Các **URL endpoint** trong tài liệu (ví dụ `/api/account/login`) là **địa chỉ API backend**. Chúng được gọi bởi client (SPA, ứng dụng di động, Postman...) qua HTTP để thực hiện hành động (đăng nhập, đổi mật khẩu...). Đây **không** phải URL để điều hướng trình duyệt.
+- Khi nào dùng NavigationManager:
+  - Chỉ dùng trong **ứng dụng Blazor client** để chuyển trang sau khi bạn gọi API và nhận kết quả thành công.
+  - Ví dụ: gọi API đăng nhập từ client, nếu đăng nhập thành công thì dùng NavigationManager để điều hướng người dùng tới trang dashboard.
+
+```csharp
+// Ví dụ: Blazor client gọi API và điều hướng UI
+var result = await Http.PostAsJsonAsync("/api/account/login", loginRequest);
+if (result.IsSuccessStatusCode)
+{
+    NavigationManager.NavigateTo("/dashboard"); // điều hướng UI phía client
+}
+```
+
+> 💡 Kết luận: các endpoint trong tài liệu là cho **server (API)**; nếu bạn dùng Blazor làm frontend, gọi các endpoint này từ client và chỉ sau đó dùng **NavigationManager** để điều hướng giao diện.
+
 **Sơ đồ tổng quan endpoint**
 
 Sơ đồ này minh họa toàn bộ các endpoint của AccountController, phân loại theo quyền truy cập.
@@ -111,8 +130,6 @@ flowchart LR
   sa --> cr
   PublicEndpoints --> AuthorizedEndpoints
   AuthorizedEndpoints --> AdminEndpoints
-```
-
 ---
 
 ## 2. DTOs mẫu
