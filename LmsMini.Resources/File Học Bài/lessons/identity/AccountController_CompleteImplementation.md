@@ -1,5 +1,9 @@
 ﻿# Hướng dẫn triển khai đầy đủ AccountController & các flow Identity
 
+> **📜 Bản quyền © [2025] [Sok Kim Thanh]**  
+> Tài liệu này do [Sok Kim Thanh] biên soạn. Mọi quyền được bảo lưu.  
+> Không được sao chép, phân phối hoặc sử dụng cho mục đích thương mại nếu không có sự cho phép bằng văn bản.
+
 Mục tiêu: bổ sung đầy đủ các endpoint quản lý tài khoản (**change password**, **forgot/reset password**, **confirm email**, **delete account**, **profile**, **refresh token/revoke**, **role management**) và hướng dẫn các thay đổi cần thiết trong dự án để chạy được.
 
 Tệp: `LmsMini.Resources/lessons/identity/AccountController_CompleteImplementation.md`
@@ -149,6 +153,9 @@ Tóm tắt: interface để *gửi email* trong các flow **forgot-password** v�
   - Tạo **IEmailSender** trong Infrastructure.
   - Dùng **ConsoleEmailSender** cho dev; dùng **SmtpEmailSender** hoặc **SendGridEmailSender** cho production.
 
+> ⚠️ Code mẫu chỉ dùng cho mục đích học tập và tham khảo.  
+> Không triển khai trực tiếp vào môi trường production nếu chưa rà soát bảo mật.
+
 ### 3.1 Interface
 
 ```csharp
@@ -160,6 +167,9 @@ public interface IEmailSender
 ```
 
 ### 3.2 Dev stub (ConsoleEmailSender)
+
+> ⚠️ Code mẫu chỉ dùng cho mục đích học tập và tham khảo.  
+> Không triển khai trực tiếp vào môi trường production nếu chưa rà soát bảo mật.
 
 ```csharp
 // Purpose: Dev/stub implementation - log email vào console hoặc ILogger
@@ -178,6 +188,9 @@ public class ConsoleEmailSender : IEmailSender
 ```
 
 ### 3.3 Production implementations (SMTP / SendGrid)
+
+> ⚠️ Code mẫu chỉ dùng cho mục đích học tập và tham khảo.  
+> Không triển khai trực tiếp vào môi trường production nếu chưa rà soát bảo mật.
 
 ```csharp
 // Purpose: SMTP implementation dùng System.Net.Mail
@@ -236,6 +249,9 @@ public class SendGridEmailSender : IEmailSender
 Tóm tắt: cấu hình **Identity**, **JWT authentication** và đăng ký DI cho **IEmailSender**. Đây là bước cần làm trước khi dùng các endpoint.
 
 - **Quick**: AddIdentity, AddDefaultTokenProviders, AddAuthentication(JwtBearer), Register IEmailSender, seed roles.
+
+> ⚠️ Code mẫu chỉ dùng cho mục đích học tập và tham khảo.  
+> Không triển khai trực tiếp vào môi trường production nếu chưa rà soát bảo mật.
 
 ### 4.1 AddIdentity & TokenProviders
 
@@ -333,6 +349,9 @@ Tóm tắt: chứa các **code mẫu** cho từng endpoint; mỗi đoạn có m�
   - 5.9 Register / Login (with refresh token)
   - 5.10 Refresh token & Logout
 
+> ⚠️ Code mẫu chỉ dùng cho mục đích học tập và tham khảo.  
+> Không triển khai trực tiếp vào môi trường production nếu chưa rà soát bảo mật.
+
 ### 5.1 Change password
 
 **Code mẫu: Change Password**
@@ -401,11 +420,15 @@ sequenceDiagram
   API_Reset-->>U: 200 OK or 400 Error
 ```
 
+(This is a large file; license will be appended at end.)
+
 ### 5.3 Reset password
 
 **Code mẫu: Reset Password**
 
+
 Mẫu endpoint nhận token (Base64Url), decode và gọi **ResetPasswordAsync**.
+
 
 ```csharp
 // Purpose: Reset user's password using token sent by email
@@ -430,7 +453,9 @@ public async Task<IActionResult> ResetPassword(ResetPasswordRequest req)
 
 **Code mẫu: Confirm Email**
 
+
 Endpoint xác nhận email bằng token do Identity sinh ra.
+
 
 ```csharp
 // Purpose: Confirm user's email using token
@@ -454,7 +479,9 @@ public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest req)
 
 **Code mẫu: Delete Account**
 
+
 Endpoint cho phép user tự xóa tài khoản; có thể yêu cầu nhập lại mật khẩu.
+
 
 ```csharp
 // Purpose: Allow authenticated user to delete own account
@@ -485,7 +512,9 @@ public async Task<IActionResult> DeleteAccount(DeleteAccountRequest? req = null)
 
 **Code mẫu: Get / Update Profile**
 
+
 Endpoints lấy và cập nhật thông tin profile của user hiện tại.
+
 
 ```csharp
 // Purpose: Return current user's profile
@@ -524,7 +553,9 @@ public async Task<IActionResult> UpdateProfile(UpdateProfileRequest req)
 
 **Code mẫu: Role CRUD (Admin only)**
 
+
 Endpoints quản lý role, bảo vệ bằng role **Admin**.
+
 
 ```csharp
 // Purpose: Get all roles (Admin only)
@@ -579,6 +610,7 @@ public async Task<IActionResult> DeleteRole(Guid id)
 ### 5.8 Setup admin (chỉ lần đầu)
 
 **Code mẫu: Setup Admin**
+
 
 ```csharp
 // Purpose: Create Admin role and an admin user on initial setup
@@ -681,9 +713,11 @@ public async Task<IActionResult> Login(LoginRequest req)
 
 > 💡 Ghi chú: **_db_** là instance của **LmsDbContext** có `DbSet<RefreshToken> RefreshTokens`.
 
+
 ### 5.10 Refresh token & Logout (code mẫu hoàn chỉnh)
 
 **Code mẫu: Refresh Token & Logout**
+
 
 ```csharp
 // Purpose: Exchange refresh token for new access token; revoke old token
@@ -947,9 +981,15 @@ Tóm tắt: checklist nhanh để triển khai. Thêm biểu tượng trạng th
 
 ---
 
-Nếu bạn muốn, tôi có thể:
+## Giấy phép
 
-- **A**: Thực hiện tự động các bước: tạo DTOs [CREATE], tạo `IEmailSender` stub, thêm `RefreshToken` entity + migration skeleton, cập nhật `AccountController` với các endpoint mẫu và chạy build.
-- **B**: Chỉ giữ tài liệu (xong) — bạn thực hiện các bước tiếp theo.
+> **Giấy phép lựa chọn:** Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
 
-Chọn A hoặc B để tôi thực hiện tiếp.
+Nguyên văn tóm tắt điều khoản chính (khuyến nghị đọc nguyên văn tại liên kết bên dưới):
+
+- Bạn được phép: chia sẻ và đóng góp lại nội dung (sao chép, phân phối và trình bày lại) cho mục đích không thương mại, với điều kiện ghi nhận tác giả và chia sẻ theo cùng giấy phép.
+- Bạn không được: sử dụng nội dung cho mục đích thương mại trừ khi được phép bằng văn bản.
+- Nếu sửa đổi, bạn phải phát hành tác phẩm phái sinh theo cùng giấy phép (ShareAlike).
+
+Đọc nguyên văn và điều khoản đầy đủ tại: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+ 
