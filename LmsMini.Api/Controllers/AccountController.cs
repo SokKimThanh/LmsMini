@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using LmsMini.Application.Interfaces;
 
 namespace LmsMini.Api.Controllers
 {
@@ -28,13 +29,16 @@ namespace LmsMini.Api.Controllers
     {
         private readonly UserManager<AspNetUser> _userManager;
         private readonly SignInManager<AspNetUser> _signInManager;
+        private readonly IJwtService _jwtService;
+
         private readonly IConfiguration _config;
 
-        public AccountController(UserManager<AspNetUser> userManager, SignInManager<AspNetUser> signInManager, IConfiguration config)
+        public AccountController(UserManager<AspNetUser> userManager, SignInManager<AspNetUser> signInManager, IConfiguration config, IJwtService jwtService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _config = config;
+            _jwtService = jwtService;
         }
 
         // dang ky
@@ -87,35 +91,7 @@ namespace LmsMini.Api.Controllers
             claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
             // Lấy khóa JWT từ cấu hình và kiểm tra
-            var jwtKey = _config["Jwt:Key"];
-            if (string.IsNullOrWhiteSpace(jwtKey))
-            {
-                return StatusCode(500, "JWT key is not configured.");
-            }
-
-            // Tạo signing credentials
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            // Lấy issuer/audience/expiry từ cấu hình (mặc định 60 phút)
-            var issuer = _config["Jwt:Issuer"];
-            var audience = _config["Jwt:Audience"];
-            var expiresInMinutes = 60;
-            if (int.TryParse(_config["Jwt:ExpiresInMinutes"], out var minutes))
-            {
-                expiresInMinutes = minutes;
-            }
-
-            // Tạo token
-            var tokenDescriptor = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
-                signingCredentials: creds
-            );
-
-            var token = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+            var token = _jwtService.CreateToken(user, roles);
 
             return Ok(new { token });
         }

@@ -379,3 +379,131 @@ public ClaimsPrincipal? ValidateToken(string token)
 ```
 
 ---
+
+## Ví dụ: sử dụng `IJwtService` trong `AccountController` (mã mẫu)
+Dưới đây là ví dụ mã `AccountController` (chỉ các endpoint liên quan) minh họa cách sử dụng `IJwtService.CreateToken(...)` để phát access token và cách quản lý refresh token (lưu, thu hồi, rotate). Bạn có thể copy-paste đoạn này vào controller thực tế và chỉnh sửa theo schema `RefreshToken` trong dự án.
+
+```csharp
+// AccountController (chỉ trích xuất các phương thức chính liên quan tới JWT/refresh)
+[ApiController]
+[Route("api/[controller]")]
+public class AccountController : ControllerBase
+{
+    private readonly UserManager<AspNetUser> _userManager;
+    private readonly IJwtService _jwtService;
+    private readonly LmsDbContext _dbContext;
+    private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+
+    public AccountController(UserManager<AspNetUser> userManager,
+                             IJwtService jwtService,
+                             LmsDbContext dbContext,
+                             RoleManager<IdentityRole<Guid>> roleManager)
+    {
+        _userManager = userManager;
+        _jwtService = jwtService;
+        _dbContext = dbContext;
+        _roleManager = roleManager;
+    }
+
+    // Register (ví dụ gán role Learner nếu tồn tại)
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(RegisterRequest req)
+    {
+        var user = new AspNetUser { UserName = req.Email, Email = req.Email };
+        var result = await _userManager.CreateAsync(user, req.Password);
+        if (!result.Succeeded) return BadRequest(result.Errors);
+
+        if (await _roleManager.RoleExistsAsync("Learner"))
+        {
+            await _userManager.AddToRoleAsync(user, "Learner");
+        }
+
+        return Ok();
+    }
+
+    // Login -> trả access token + refresh token (lưu trong DB)
+    [HttpPost("login")]
+    public async Task<IActionResult> Login(LoginRequest req)
+    {
+        var user = await _userManager.FindByEmailAsync(req.Email);
+        if (user == null) return Unauthorized();
+
+        var pwOk = await _userManager.CheckPasswordAsync(user, req.Password);
+        if (!pwOk) return Unauthorized();
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var accessToken = _jwtService.CreateToken(user, roles);
+
+        // Tạo refresh token mạnh và lưu vào DB
+        var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var rtEntity = new RefreshToken
+        {
+            Token = refreshToken,
+            UserId = user.Id,
+            CreatedAt = DateTime.UtcNow,
+            Expires = DateTime.UtcNow.AddDays(7),
+            IsRevoked = false
+        };
+        _dbContext.Set<RefreshToken>().Add(rtEntity);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { accessToken, refreshToken });
+    }
+
+    // Refresh token: đổi refresh lấy access mới, revoke old và phát refresh mới (rotate)
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken(RefreshTokenRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.RefreshToken)) return BadRequest();
+
+        var stored = await _dbContext.Set<RefreshToken>().SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
+        if (stored == null || stored.IsRevoked || stored.Expires < DateTime.UtcNow) return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
+        if (user == null) return Unauthorized();
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var accessToken = _jwtService.CreateToken(user, roles);
+
+        // Revoke old refresh token and issue new one
+        stored.IsRevoked = true;
+        var newRefresh = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var newRtEntity = new RefreshToken
+        {
+            Token = newRefresh,
+            UserId = stored.UserId,
+            CreatedAt = DateTime.UtcNow,
+            Expires = DateTime.UtcNow.AddDays(7),
+            IsRevoked = false
+        };
+        _dbContext.Set<RefreshToken>().Add(newRtEntity);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { accessToken, refreshToken = newRefresh });
+    }
+
+    // Logout: thu hồi refresh token
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout(LogoutRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.RefreshToken)) return BadRequest();
+
+        var stored = await _dbContext.Set<RefreshToken>().SingleOrDefaultAsync(r => r.Token == req.RefreshToken);
+        if (stored != null)
+        {
+            stored.IsRevoked = true;
+            await _dbContext.SaveChangesAsync();
+        }
+
+        return Ok();
+    }
+}
+```
+
+Ghi chú ngắn:
+- Đảm bảo trong domain có entity `RefreshToken` và DbContext có DbSet tương ứng (hoặc dùng `_dbContext.Set<RefreshToken>()`).
+- Ở production nên lưu refresh token hashed thay vì plaintext, và lưu thêm metadata (ip, userAgent) để hỗ trợ audit.
+- DTOs `RefreshTokenRequest` / `LogoutRequest` đơn giản chỉ cần chứa `string RefreshToken`.
+
+---
