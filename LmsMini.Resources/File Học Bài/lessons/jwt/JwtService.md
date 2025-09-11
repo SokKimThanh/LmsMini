@@ -127,6 +127,8 @@ Những điểm trên đủ để hiểu và tùy chỉnh `JwtService` trong h�
 Dưới đây là hai sơ đồ sequence Mermaid, mỗi sơ đồ mô tả chi tiết luồng tương tác cho một thao tác chính.
 
 ### CreateToken (sequence)
+CreateToken: "Khi client đăng nhập, controller kiểm chứng, gọi JwtService tạo token. JwtService lấy cấu hình issuer, audience, key và thời hạn, dựng claim chủ thể sub cùng email và tên, biến danh sách roles thành các role claim, tạo khoá đối xứng từ key và credentials HMAC SHA256, ghép tất cả vào JwtSecurityToken, ký và trả chuỗi token đã ký về cho controller — controller trả token cho client." 
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -146,6 +148,8 @@ sequenceDiagram
 ```
 
 ### ValidateToken (sequence)
+ValidateToken: "Client gửi request kèm Bearer token, API gọi JwtService xác thực; handler kiểm tra chữ ký, issuer, audience và thời hạn, thêm bước kiểm tra header alg là HmacSha256; nếu mọi thứ hợp lệ trả về ClaimsPrincipal để API sử dụng, còn không thì trả null và API trả 401." 
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -164,14 +168,6 @@ sequenceDiagram
         Api-->>Client: 401 Unauthorized
     end
 ```
-
----
-
-## Đoạn văn xuôi dễ nhớ (học thuộc cho từng sơ đồ)
-
-CreateToken: "Khi client đăng nhập, controller kiểm chứng, gọi JwtService tạo token. JwtService lấy cấu hình issuer, audience, key và thời hạn, dựng claim chủ thể sub cùng email và tên, biến danh sách roles thành các role claim, tạo khoá đối xứng từ key và credentials HMAC SHA256, ghép tất cả vào JwtSecurityToken, ký và trả chuỗi token đã ký về cho controller — controller trả token cho client." 
-
-ValidateToken: "Client gửi request kèm Bearer token, API gọi JwtService xác thực; handler kiểm tra chữ ký, issuer, audience và thời hạn, thêm bước kiểm tra header alg là HmacSha256; nếu mọi thứ hợp lệ trả về ClaimsPrincipal để API sử dụng, còn không thì trả null và API trả 401." 
 
 ---
 
