@@ -7,8 +7,6 @@ Bạn không cần học tất cả mọi thứ trong roadmap để bắt đầu
 ---
 
 ## 1. Kiến thức nền tảng
-
-### Internet & Web
 - Cách Internet hoạt động
 - HTTP là gì?
 - Domain Name
@@ -19,8 +17,7 @@ Bạn không cần học tất cả mọi thứ trong roadmap để bắt đầu
 ---
 
 ## 2. Chọn ngôn ngữ lập trình
-Một số lựa chọn phổ biến:
-- **C#**
+- C#
 - Java
 - Python
 - JavaScript / Node.js
@@ -32,36 +29,24 @@ Một số lựa chọn phổ biến:
 ---
 
 ## 3. Quản lý mã nguồn
-- Git (Version Control)
-- Dịch vụ lưu trữ repo: GitHub, GitLab, Bitbucket
+- Git
+- GitHub, GitLab, Bitbucket
 
 ---
 
 ## 4. Cơ sở dữ liệu
-
-### CSDL quan hệ (Relational Databases)
+### Quan hệ (SQL)
 - PostgreSQL
 - MySQL / MariaDB
 - MS SQL
 - Oracle
 
-### CSDL phi quan hệ (NoSQL)
+### Phi quan hệ (NoSQL)
 - MongoDB
 - CouchDB
-- Neo4j (Graph DB)
+- Neo4j
 - DynamoDB
-- Redis (Key-Value Store)
-
-### Kiến thức cần nắm
-- ORM
-- Chuẩn hóa dữ liệu (Normalization)
-- ACID
-- Transactions
-- Indexes
-- Sharding
-- Replication
-- CAP Theorem
-- Scaling Databases
+- Redis
 
 ---
 
@@ -82,7 +67,7 @@ Một số lựa chọn phổ biến:
 - CSP
 - OWASP Top 10
 - API Security Best Practices
-- Hashing Algorithms: MD5, SHA, bcrypt, scrypt
+- Hashing: MD5, SHA, bcrypt, scrypt
 
 ---
 
@@ -104,16 +89,16 @@ Một số lựa chọn phổ biến:
 - Kubernetes
 - CI/CD
 - Monitoring & Logging
-- Message Brokers: RabbitMQ, Kafka
-- Web Servers: Nginx, Apache, Caddy, IIS
+- RabbitMQ, Kafka
+- Nginx, Apache, Caddy, IIS
 
 ---
 
-## 9. Xử lý thời gian thực
+## 9. Thời gian thực
 - WebSockets
 - Server-Sent Events
-- Long Polling / Short Polling
-- Realtime DB: Firebase, RethinkDB
+- Long/Short Polling
+- Firebase, RethinkDB
 
 ---
 
@@ -130,7 +115,7 @@ Một số lựa chọn phổ biến:
 - Unit Testing
 - Integration Testing
 - Functional Testing
-- Test Driven Development (TDD)
+- TDD
 
 ---
 
@@ -151,4 +136,38 @@ Một số lựa chọn phổ biến:
 
 ---
 
-**Nguồn:** [Backend Developer Roadmap 2025](https://roadmap.sh/backend)
+## Sơ đồ Mermaid
+
+```mermaid
+graph TD
+    A[Kiến thức nền tảng] --> B[Chọn ngôn ngữ lập trình]
+    B --> C[Quản lý mã nguồn]
+    C --> D[Cơ sở dữ liệu]
+    D --> E[API & Giao thức]
+    E --> F[Bảo mật]
+    F --> G[Kiến trúc & Mô hình triển khai]
+    G --> H[DevOps & Triển khai]
+    H --> I[Thời gian thực]
+    I --> J[Tối ưu hiệu năng]
+    J --> K[Testing]
+    K --> L[Quan sát & Giám sát]
+    L --> M[Lời khuyên & Phát triển liên tục]
+
+    subgraph Languages
+        B1[C#]
+        B2[Java]
+        B3[Python]
+        B4[Node.js]
+        B5[Go]
+        B6[PHP]
+        B7[Ruby]
+        B8[Rust]
+    end
+    B --> B1
+    B --> B2
+    B --> B3
+    B --> B4
+    B --> B5
+    B --> B6
+    B --> B7
+    B --> B8
