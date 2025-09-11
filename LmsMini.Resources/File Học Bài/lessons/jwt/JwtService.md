@@ -171,4 +171,12 @@ sequenceDiagram
 
 ---
 
-Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần, có thể mở rộng bằng ví dụ cụ thể với mã gọi thực tế hoặc test unit mẫu.
+## Danh sách file liên quan
+- `LmsMini.Infrastructure/Services/JwtService.cs` — triển khai logic `CreateToken` và `ValidateToken`.
+- `LmsMini.Application/Auth/JwtOptions.cs` — cấu hình `Issuer`, `Audience`, `Key` và `ExpiresInMinutes`.
+- `LmsMini.Application/Interfaces/IJwtService.cs` — giao diện `IJwtService`.
+- `LmsMini.Domain/Entities/Identity/AspNetUser.cs` — model `AspNetUser` (user entity) được nhúng vào claim.
+- `LmsMini.Infrastructure/Persistence/LmsDbContext.cs` — cấu hình Identity và mapping bảng AspNet*.
+- `LmsMini.Resources/File Học Bài/lessons/jwt/JwtService.md` — tài liệu hiện tại.
+
+---
