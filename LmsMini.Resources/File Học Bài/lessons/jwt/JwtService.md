@@ -159,6 +159,79 @@ builder.Services.AddSingleton<IJwtService, JwtService>();
 
 ---
 
+## Ví dụ: Đoạn mã `Program.cs` (mẫu)
+Dưới đây là đoạn mã mẫu `Program.cs` chứa các phần chính: bind `JwtOptions`, fail-fast kiểm tra `Jwt:Key`, đăng ký authentication với JwtBearer và đăng ký `JwtService`.
+
+```csharp
+using LmsMini.Application.Auth;
+using LmsMini.Application.Interfaces;
+using LmsMini.Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Bind JwtOptions từ cấu hình (appsettings / user-secrets / env vars)
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+
+// Fail-fast: đảm bảo Jwt:Key đã được cấu hình
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+    throw new InvalidOperationException("Jwt:Key is not configured. Set it using user-secrets or environment variables.");
+
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+// Đăng ký Authentication với JWT Bearer
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = true; // production: true
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+        ClockSkew = TimeSpan.Zero
+    };
+
+    // Optional: event hooks for logging
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = ctx =>
+        {
+            // optional logging
+            return Task.CompletedTask;
+        }
+    };
+});
+
+// Đăng ký JwtService
+builder.Services.AddSingleton<IJwtService, JwtService>();
+
+// Các dịch vụ khác (Identity, DbContext, Controllers...) nên được đăng ký ở đây
+builder.Services.AddControllers();
+
+var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+app.Run();
+```
+
+---
+
 ## Lưu ý bảo mật & vận hành
 - Bảo vệ `JwtOptions.Key`: dùng Secret Manager hoặc biến môi trường trong production.
 - Đảm bảo `Key` đủ dài và ngẫu nhiên (không dùng chuỗi ngắn).
@@ -243,3 +316,66 @@ sequenceDiagram
 
 ---
 Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần checklist thực hiện hoặc chèn code trực tiếp vào `Program.cs`, tôi có thể sửa file đó theo yêu cầu.
+
+---
+
+## Mã nguồn (thực tế): `CreateToken` và `ValidateToken`
+Dưới đây là triển khai thực tế của hai phương thức `CreateToken` và `ValidateToken` lấy từ `LmsMini.Infrastructure/Services/JwtService.cs`. Bạn có thể sao chép trực tiếp vào project nếu cần tham khảo.
+
+```csharp
+public string CreateToken(AspNetUser user, IEnumerable<string> roles)
+{
+    // Tạo danh sách các claim cơ bản cho token:
+    // - sub: id của người dùng
+    // - email: email của người dùng (nếu có)
+    // - name: username (nếu có)
+    var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
+    };
+
+    // Chuyển các role thành claim kiểu ClaimTypes.Role và nối vào danh sách claim
+    // (claims.Concat(...) được truyền trực tiếp vào JwtSecurityToken constructor).
+    // Tạo khoá ký (symmetric key) từ _opts.Key (chuỗi ký).
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_opts.Key));
+
+    // Tạo SigningCredentials sử dụng HMAC SHA256
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    // Tạo token với issuer, audience, claims (bao gồm role claims), thời hạn và signing credentials
+    var token = new JwtSecurityToken(
+        issuer: _opts.Issuer,
+        audience: _opts.Audience,
+        claims: claims.Concat(roles.Select(role => new Claim(ClaimTypes.Role, role))),
+        expires: DateTime.UtcNow.AddMinutes(_opts.ExpiresInMinutes),
+        signingCredentials: creds
+    );
+
+    // Chuyển JwtSecurityToken thành chuỗi JWT đã ký và trả về
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
+
+public ClaimsPrincipal? ValidateToken(string token)
+{
+    try
+    {
+        var handler = new JwtSecurityTokenHandler();
+        var principal = handler.ValidateToken(token, _validationParams, out var validatedToken);
+        // Kiểm tra xem token đã được ký đúng thuật toán chưa
+        if (validatedToken is not JwtSecurityToken jwtToken ||
+            !jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+        {
+            return null; // Token không hợp lệ
+        }
+        return principal; // Trả về ClaimsPrincipal nếu token hợp lệ
+    }
+    catch
+    {
+        return null; // Trả về null nếu có lỗi trong quá trình xác thực (token không hợp lệ hoặc hết hạn)
+    }
+}
+```
+
+---
