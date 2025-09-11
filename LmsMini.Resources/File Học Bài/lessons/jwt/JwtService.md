@@ -68,10 +68,9 @@ Cách hoạt động:
 ## Cấu hình (chi tiết — ví dụ và bước thực hiện)
 Phần này hướng dẫn chi tiết cách cấu hình JWT trong ứng dụng để `JwtService` hoạt động đúng: gồm cách đặt giá trị trong `appsettings.json` (chỉ để tham khảo), cách lưu an toàn với *user-secrets* hoặc *environment variables*, và cách cập nhật `Program.cs` để đăng ký authentication và `JwtService`.
 
-LƯU Ý: KHÔNG commit khóa bí mật thật vào mã nguồn. Ở môi trường development dùng *user-secrets*; ở production dùng *environment variables* hoặc secret manager của hạ tầng.
+LƯU Ý: KHÔNG commit khóa bí mật thật vào mã nguồn.
 
 ### 1) appsettings.json (ví dụ chỉ để tham khảo)
-Đặt đoạn sau trong `appsettings.json` để tham khảo. Thực tế lấy giá trị từ user-secrets hoặc biến môi trường.
 
 ```json
 "Jwt": {
@@ -92,25 +91,13 @@ LƯU Ý: KHÔNG commit khóa bí mật thật vào mã nguồn. Ở môi trườ
 
     dotnet user-secrets set "Jwt:Key" "your_development_secret_here"
 
-  - Bạn có thể set thêm `Jwt:Issuer`/`Jwt:Audience` nếu muốn.
-
-- Production: dùng biến môi trường (hoặc secret manager của cloud)
-  - Mapping: cấu hình `:` -> `__` trong biến môi trường. Ví dụ:
-    - `Jwt:Key` => `JWT__Key`
-    - `Jwt:Issuer` => `JWT__Issuer`
-    - `Jwt:Audience` => `JWT__Audience`
-    - `Jwt:ExpiresInMinutes` => `JWT__ExpiresInMinutes`
-
+- Production: dùng biến môi trường (hoặc secret manager)
+  - Mapping: `Jwt:Key` => `JWT__Key`, v.v.
   - Ví dụ (bash):
 
     export JWT__Key="your_production_secret_here"
-    export JWT__Issuer="LmsMini"
-    export JWT__Audience="LmsMiniClient"
-
-  - Trong container/Kubernetes, cấu hình secret/env var tương tự.
 
 ### 3) Kiểm tra fail-fast khi ứng dụng khởi động
-Để tránh chạy ứng dụng với cấu hình thiếu, dùng một kiểm tra sớm (fail-fast) trong `Program.cs`.
 
 ```csharp
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -120,10 +107,7 @@ if (string.IsNullOrWhiteSpace(jwtKey))
 }
 ```
 
-Đặt đoạn này trước khi bạn dùng `jwtKey` để tạo `SymmetricSecurityKey`.
-
 ### 4) Program.cs — đăng ký JwtOptions, Authentication và JwtService
-Dưới đây là bước chi tiết để cấu hình trong `Program.cs` (tập trung vào phần JWT). Chèn code vào nơi phù hợp trong quá trình khởi tạo ứng dụng.
 
 ```csharp
 // 1. Bind JwtOptions (trong builder.Services)
@@ -153,99 +137,15 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ClockSkew = TimeSpan.Zero
     };
-
-    // Optional: events for logging
-    options.Events = new JwtBearerEvents
-    {
-        OnAuthenticationFailed = ctx =>
-        {
-            // optional logging
-            return Task.CompletedTask;
-        }
-    };
 });
 
 // 4. Register JwtService implementation and IJwtService contract
 builder.Services.AddSingleton<IJwtService, JwtService>();
 ```
 
-Ghi chú:
-- `key` lấy từ configuration; nếu bạn đã bind `JwtOptions`, `JwtService` cũng sẽ đọc `JwtOptions` qua `IOptions<JwtOptions>`.
-- Ở ví dụ trên, `IssuerSigningKey` được tạo từ cùng `key` để đảm bảo token được validate đúng.
-
-### 5) Cách JwtService đọc cấu hình (đã có trong dự án)
-`JwtService` trong `LmsMini.Infrastructure` nhận `IOptions<JwtOptions>` trong constructor và tự tạo `TokenValidationParameters`. Vì vậy bạn chỉ cần:
-
-- Bind `JwtOptions` (bước 1) và
-- Đăng ký `JwtService` (bước 4)
-
-Không cần tạo `TokenValidationParameters` thủ công ở nhiều nơi — `JwtService` đã làm việc đó.
-
-### 6) Môi trường container / production
-- Đặt biến môi trường `JWT__Key` trong secrets manager hoặc pipeline CI/CD.
-- Đảm bảo ứng dụng đọc biến môi trường (ASP.NET Core tự map `__` -> `:`) và khởi động thành công.
-- Sử dụng HTTPS và cấu hình reverse-proxy (nginx/ingress) phù hợp.
-
-### 7) Ví dụ: đăng ký đầy đủ trong Program.cs (đoạn bổ sung mẫu)
-```csharp
-using LmsMini.Application.Auth;
-using LmsMini.Application.Interfaces;
-using LmsMini.Infrastructure.Services;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// bind options
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-
-// fail-fast
-var jwtKey = builder.Configuration["Jwt:Key"];
-if (string.IsNullOrWhiteSpace(jwtKey))
-    throw new InvalidOperationException("Jwt:Key is not configured");
-
-var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
-
-// authentication
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
-// register JwtService
-builder.Services.AddSingleton<IJwtService, JwtService>();
-
-var app = builder.Build();
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-app.Run();
-```
-
-### 8) Tạo token và validate token ở controller/service
-- Tạo token: inject `IJwtService` và gọi `CreateToken(user, roles)` như ví dụ trong `AccountController_CompleteImplementation.md`.
-- Validate token (hiếm khi cần thủ công): gọi `_jwtService.ValidateToken(token)` để nhận `ClaimsPrincipal` hoặc `null`.
-
-### 9) Kiểm thử nhanh
-- Dev: set user-secrets `Jwt:Key`, chạy ứng dụng, gọi `/api/account/login` và kiểm tra nhận được access token.
-- Sử dụng jwt.io để decode token và kiểm tra claim `sub`, `email`, role claims.
-- Gửi request có header `Authorization: Bearer <token>` tới endpoint bảo vệ bằng `[Authorize]` để đảm bảo authentication hoạt động.
+### 5) Môi trường container / production
+- Đặt biến môi trường `JWT__Key` trong secret manager hoặc pipeline CI/CD.
+- Sử dụng HTTPS và cấu hình reverse-proxy phù hợp.
 
 ---
 
@@ -278,25 +178,15 @@ app.Run();
 ---
 
 ## Có cần học không? Những điểm chính cần nhớ
-Nên học. Đây là các điểm ngắn gọn, hữu dụng để nhớ khi làm việc với `JwtService`:
-
 - Mục đích chính: `JwtService` tạo token (`CreateToken`) và xác thực token (`ValidateToken`).
 - Claims cơ bản: `sub` (user id), `email`, `name` và các `ClaimTypes.Role` cho vai trò.
 - Cách ký token: dùng `SymmetricSecurityKey` từ `JwtOptions.Key` và `SigningCredentials` với `HmacSha256`.
-- Thời hạn token: `expires = DateTime.UtcNow.AddMinutes(_opts.ExpiresInMinutes)` — cấu hình qua `JwtOptions`.
-- Validate token: kiểm tra issuer, audience, lifetime và signature thông qua `TokenValidationParameters`.
-- Bảo mật khóa: lưu `JwtOptions.Key` an toàn (biến môi trường / Secret Manager) và đảm bảo đủ dài, ngẫu nhiên.
-- Kiểm tra thuật toán: `ValidateToken` kiểm tra header `alg` = `HmacSha256` để chống tấn công thay đổi thuật toán.
-- Clock skew: `ClockSkew = TimeSpan.Zero` loại bỏ dung sai mặc định; cần cân nhắc nếu hệ thống lệch giờ.
-- Mở rộng khi cần: thêm `jti` cho khả năng thu hồi token hoặc triển khai refresh token khi cần.
-- Tích hợp: đăng ký `JwtOptions` và `JwtService` trong DI để sử dụng trong controller/middleware.
-
-Những điểm trên đủ để hiểu và tùy chỉnh `JwtService` trong hầu hết các trường hợp. Nếu cần checklist kiểm tra cấu hình hoặc ví dụ test unit, có thể thêm vào tài liệu.
+- Thời hạn token: cấu hình qua `JwtOptions.ExpiresInMinutes`.
+- Validate token: kiểm tra issuer, audience, lifetime và signature.
 
 ---
 
 ## Sơ đồ minh họa (Mermaid sequence)
-Dưới đây là hai sơ đồ sequence Mermaid, mỗi sơ đồ mô tả chi tiết luồng tương tác cho một thao tác chính.
 
 ### CreateToken (sequence)
 CreateToken: "Khi client đăng nhập, controller kiểm chứng, gọi JwtService tạo token. JwtService lấy cấu hình issuer, audience, key và thời hạn, dựng claim chủ thể sub cùng email và tên, biến danh sách roles thành các role claim, tạo khoá đối xứng từ key và credentials HMAC SHA256, ghép tất cả vào JwtSecurityToken, ký và trả chuỗi token đã ký về cho controller — controller trả token cho client." 
@@ -344,11 +234,12 @@ sequenceDiagram
 ---
 
 ## Danh sách file liên quan
-- `LmsMini.Infrastructure/Services/JwtService.cs` — triển khai logic `CreateToken` và `ValidateToken`.
-- `LmsMini.Application/Auth/JwtOptions.cs` — cấu hình `Issuer`, `Audience`, `Key` và `ExpiresInMinutes`.
-- `LmsMini.Application/Interfaces/IJwtService.cs` — giao diện `IJwtService`.
-- `LmsMini.Domain/Entities/Identity/AspNetUser.cs` — model `AspNetUser` (user entity) được nhúng vào claim.
-- `LmsMini.Infrastructure/Persistence/LmsDbContext.cs` — cấu hình Identity và mapping bảng AspNet*.
-- `LmsMini.Resources/File Học Bài/lessons/jwt/JwtService.md` — tài liệu hiện tại.
+- `LmsMini.Infrastructure/Services/JwtService.cs`
+- `LmsMini.Application/Auth/JwtOptions.cs`
+- `LmsMini.Application/Interfaces/IJwtService.cs`
+- `LmsMini.Domain/Entities/Identity/AspNetUser.cs`
+- `LmsMini.Infrastructure/Persistence/LmsDbContext.cs`
+- `LmsMini.Resources/File Học Bài/lessons/jwt/JwtService.md`
 
 ---
+Tài liệu ngắn này nhằm giúp nắm nhanh cách `JwtService` hoạt động trong `LmsMini`. Nếu cần checklist thực hiện hoặc chèn code trực tiếp vào `Program.cs`, tôi có thể sửa file đó theo yêu cầu.
