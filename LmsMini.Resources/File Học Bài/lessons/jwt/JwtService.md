@@ -306,6 +306,72 @@ sequenceDiagram
 
 ---
 
+## Sơ đồ sequence (bổ sung) — dễ học thuộc
+Dưới đây là hai sơ đồ sequence dạng Mermaid mô tả chi tiết từng bước cho hai thao tác chính: tạo access token (`CreateToken`) và luồng refresh token (gồm refresh + logout). Mỗi sơ đồ kèm theo một đoạn văn xuôi ngắn dễ học thuộc.
+
+### CreateToken (sequence, chi tiết từng bước)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AuthController
+    participant JwtService
+    participant JwtOptions
+
+    Client->>AuthController: POST /api/account/login (credentials)
+    AuthController->>AuthController: Validate credentials (email/password)
+    AuthController->>JwtService: Call CreateToken(user, roles)
+    JwtService->>JwtOptions: Read Issuer/Audience/Key/Expires
+    JwtService->>JwtService: Build base claims (sub, email, name)
+    JwtService->>JwtService: Append role claims (ClaimTypes.Role)
+    JwtService->>JwtService: Create SymmetricSecurityKey from Key
+    JwtService->>JwtService: Create SigningCredentials (HmacSha256)
+    JwtService->>JwtService: Create JwtSecurityToken (issuer, audience, claims, expires)
+    JwtService->>JwtService: WriteToken -> string token
+    JwtService-->>AuthController: return access token
+    AuthController-->>Client: 200 OK { accessToken }
+```
+
+Văn xuôi dễ nhớ (CreateToken): "Khi user xác thực, controller gọi JwtService; JwtService dựng claim, tạo khoá và credentials, ký JwtSecurityToken rồi trả chuỗi token cho controller." 
+
+
+### Refresh & Logout (sequence, chi tiết luồng refresh và thu hồi)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Api as AccountController
+    participant Db as RefreshTokenStore
+    participant JwtService
+
+    Client->>Api: POST /api/account/refresh-token { refreshToken }
+    Api->>Db: Find refresh token record
+    alt token valid
+        Db-->>Api: stored token (not revoked, not expired)
+        Api->>Api: Load user by stored.UserId
+        Api->>JwtService: CreateToken(user, roles)
+        Api->>Db: Revoke old refresh token (IsRevoked = true)
+        Api->>Db: Insert new refresh token (rotate)
+        Db-->>Api: OK
+        Api-->>Client: 200 OK { accessToken, refreshToken }
+    else token invalid
+        Api-->>Client: 401 Unauthorized
+    end
+
+    %% Logout flow
+    Client->>Api: POST /api/account/logout { refreshToken }
+    Api->>Db: Find refresh token record
+    alt found
+        Api->>Db: Set IsRevoked = true
+        Db-->>Api: OK
+        Api-->>Client: 200 OK
+    else not found
+        Api-->>Client: 200 OK (idempotent)
+    end
+```
+
+Văn xuôi dễ nhớ (Refresh/Logout): "Khi client gửi refresh, controller kiểm token trong DB; nếu hợp lệ tạo access mới, thu hồi token cũ và phát token mới; khi logout chỉ cần đánh dấu refresh token là bị thu hồi." 
+
+---
+
 ## Danh sách file liên quan
 - `LmsMini.Infrastructure/Services/JwtService.cs`
 - `LmsMini.Application/Auth/JwtOptions.cs`
@@ -505,5 +571,3 @@ Ghi chú ngắn:
 - Đảm bảo trong domain có entity `RefreshToken` và DbContext có DbSet tương ứng (hoặc dùng `_dbContext.Set<RefreshToken>()`).
 - Ở production nên lưu refresh token hashed thay vì plaintext, và lưu thêm metadata (ip, userAgent) để hỗ trợ audit.
 - DTOs `RefreshTokenRequest` / `LogoutRequest` đơn giản chỉ cần chứa `string RefreshToken`.
-
----
